@@ -290,7 +290,7 @@ async function baixarEEnviarMusica(sock, from, termo, senderId, messageKey, orig
                     
                     await sock.sendMessage(from, {
                         image: thumbnailBuffer,
-                        caption: `💃🔥 *DﾑMﾑS Dﾑ NIGӇԵ* 🔥💃\n👏🍻🎶🍾🍸✨\n\n━━━━━━━━━━━━━━━━\n🎵 *${dados.titulo}*\n🎤 *${dados.autor}*\n⏱️ *${formatarDuracao(dados.duracao)}*\n━━━━━━━━━━━━━━━━\n\n@${senderId.split('@')[0]}\n\n⬇️ 𝙱𝙰𝙸𝚇𝙰𝙽𝙳𝙾 𝚂𝙴𝚄 𝙷𝙸𝚃... 🎧\n💃 𝙿𝚁𝙴𝙿𝙰𝚁𝙰 𝙿𝚁𝙰 𝙳𝙰𝙽𝙲̧𝙰𝚁! 🕺\n🔥 𝙰 𝙵𝙴𝚂𝚃𝙰 𝚅𝙰𝙸 𝙲𝙾𝙼𝙴𝙲̧𝙰𝚁! 🎉`,
+                        caption: `💃🔥 *DﾑMﾑS Dﾑ NIGӇԵ* 🔥💃\n👏🍻🎶🍾🍸✨\n\n♫♪♩·.¸¸.·♩♪♫ ෴❤️෴ ෴❤️෴\n🎵 Música: ${dados.titulo} 🎶\n🎤 Artista: ${dados.autor} 🎧\n⏱️ Duração: ${formatarDuracao(dados.duracao)} ⏰\n💃✨ Sinta o ritmo. Brilhe na pista. ✨🕺\n🍾🥂 #NoitePerfeita #DamasDaNight #VibeBoa\n♫♪♩·.¸¸.·♩♪♫ ෴❤️෴ ෴❤️෴\n\n@${senderId.split('@')[0]}\n\n⬇️ 𝙱𝙰𝙸𝚇𝙰𝙽𝙳𝙾 𝚂𝙴𝚄 𝙷𝙸𝚃... 🎧\n💃 𝙿𝚁𝙴𝙿𝙰𝚁𝙰 𝙿𝚁𝙰 𝙳𝙰𝙽𝙲̧𝙰𝚁! 🕺\n🔥 𝙰 𝙵𝙴𝚂𝚃𝙰 𝚅𝙰𝙸 𝙲𝙾𝙼𝙴𝙲̧𝙰𝚁! 🎉`,
                         jpegThumbnail: thumb,
                         mentions: [senderId],
                         contextInfo: {
@@ -316,7 +316,7 @@ async function baixarEEnviarMusica(sock, from, termo, senderId, messageKey, orig
         if (!thumbnailEnviada) {
             console.log(`📝 Enviando apenas informações de texto...`);
             await sock.sendMessage(from, {
-                text: `💃🔥 *DﾑMﾑS Dﾑ NIGӇԵ* 🔥💃\n👏🍻🎶🍾🍸✨\n\n━━━━━━━━━━━━━━━━\n🎵 *${dados.titulo}*\n🎤 *${dados.autor}*\n⏱️ *${formatarDuracao(dados.duracao)}*\n━━━━━━━━━━━━━━━━\n\n@${senderId.split('@')[0]}\n\n⬇️ 𝙱𝙰𝙸𝚇𝙰𝙽𝙳𝙾 𝚂𝙴𝚄 𝙷𝙸𝚃... 🎧\n💃 𝙿𝚁𝙴𝙿𝙰𝚁𝙰 𝙿𝚁𝙰 𝙳𝙰𝙽𝙲̧𝙰𝚁! 🕺\n🔥 𝙰 𝙵𝙴𝚂𝚃𝙰 𝚅𝙰𝙸 𝙲𝙾𝙼𝙴𝙲̧𝙰𝚁! 🎉`,
+                text: `💃🔥 *DﾑMﾑS Dﾑ NIGӇԵ* 🔥💃\n👏🍻🎶🍾🍸✨\n\n♫♪♩·.¸¸.·♩♪♫ ෴❤️෴ ෴❤️෴\n🎵 Música: ${dados.titulo} 🎶\n🎤 Artista: ${dados.autor} 🎧\n⏱️ Duração: ${formatarDuracao(dados.duracao)} ⏰\n💃✨ Sinta o ritmo. Brilhe na pista. ✨🕺\n🍾🥂 #NoitePerfeita #DamasDaNight #VibeBoa\n♫♪♩·.¸¸.·♩♪♫ ෴❤️෴ ෴❤️෴\n\n@${senderId.split('@')[0]}\n\n⬇️ 𝙱𝙰𝙸𝚇𝙰𝙽𝙳𝙾 𝚂𝙴𝚄 𝙷𝙸𝚃... 🎧\n💃 𝙿𝚁𝙴𝙿𝙰𝚁𝙰 𝙿𝚁𝙰 𝙳𝙰𝙽𝙲̧𝙰𝚁! 🕺\n🔥 𝙰 𝙵𝙴𝚂𝚃𝙰 𝚅𝙰𝙸 𝙲𝙾𝙼𝙴𝙲̧𝙰𝚁! 🎉`,
                 mentions: [senderId],
                 contextInfo: {
                     stanzaId: originalMessage.key.id,

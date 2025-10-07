@@ -7,7 +7,8 @@ async function configurarBloqueio(sock) {
         '5521979452941@s.whatsapp.net',
         '5516981874405@s.whatsapp.net',
         '558398759516@s.whatsapp.net',
-        '5521972337640@s.whatsapp.net'
+        '5521972337640@s.whatsapp.net',
+        '5519997998496@s.whatsapp.net'
     ];
 
     // Função para processar mensagens recebidas

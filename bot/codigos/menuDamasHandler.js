@@ -11,6 +11,38 @@ const menuDamasHandler = async (sock, message, chatId) => {
 ╚══════════════════════════
 
 ┏━━━━━━━━━━━━━━━━━━━━━━━
+┃ 🎨 *STICKERS*
+┣━━━━━━━━━━━━━━━━━━━━━━━
+┃
+┃ 🖼️ *#stickerdamas*
+┃ └ Cria sticker de imagem
+┃    (responda uma imagem)
+┃
+┃ 🖼️ *#stickerdamas [texto]*
+┃ └ Cria sticker com texto
+┃    (responda uma imagem)
+┃
+┃ 🎬 *#buscargif [busca]*
+┃ └ Busca GIF e cria sticker animado
+┃
+┃ 🎬 *#buscargif [busca] [texto]*
+┃ └ Busca GIF com legenda
+┃
+┃ 🔗 *#gifsticker [url]*
+┃ └ Cria sticker de URL do GIF
+┃
+┃ 🔗 *#gifsticker [url] [texto]*
+┃ └ Cria sticker de URL com texto
+┃
+┃ 📝 *Exemplos:*
+┃ • #stickerdamas
+┃ • #stickerdamas Lucas
+┃ • #buscargif gato dancando
+┃ • #buscargif cachorro feliz meu pet
+┃
+┗━━━━━━━━━━━━━━━━━━━━━━━
+
+┏━━━━━━━━━━━━━━━━━━━━━━━
 ┃ 📋 *HORÓSCOPO*
 ┣━━━━━━━━━━━━━━━━━━━━━━━
 ┃
@@ -102,6 +134,7 @@ const menuDamasHandler = async (sock, message, chatId) => {
 ║ 
 ║ ❌ Errado: #horoscopo [áries]
 ║ ✅ Certo: #horoscopo áries
+║
 ╚══════════════════════════
 
 ✨ _Aproveite e divirta-se!_ ✨

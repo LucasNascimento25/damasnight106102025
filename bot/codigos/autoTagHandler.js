@@ -1,7 +1,10 @@
-// autoTagHandler.js
+// autoTagHandler.js - VERSÃO COM PROCESSAMENTO DE IMAGEM VIA JIMP
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { downloadMediaMessage } from '@whiskeysockets/baileys';
+import axios from 'axios';
+import Jimp from 'jimp';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,27 +62,94 @@ class AutoTagHandler {
         }
     }
 
-    async processMessage(sock, from, userId, content, messageKey) {
+    /**
+     * Processa imagem com Jimp (mesmo esquema do hqseroticos.js)
+     */
+    async processarImagemComJimp(buffer) {
+        try {
+            console.log(`📦 Buffer recebido: ${buffer.length} bytes`);
+
+            if (buffer.length < 5000) {
+                console.log(`⚠️ Imagem muito pequena (${buffer.length} bytes)`);
+                return null;
+            }
+
+            const image = await Jimp.read(buffer);
+            console.log(`📐 Dimensões originais: ${image.getWidth()}x${image.getHeight()}`);
+            
+            const maxWidth = 1280;
+            const maxHeight = 1280;
+            
+            if (image.getWidth() > maxWidth || image.getHeight() > maxHeight) {
+                console.log(`🔧 Redimensionando...`);
+                image.scaleToFit(maxWidth, maxHeight);
+                console.log(`✅ Nova dimensão: ${image.getWidth()}x${image.getHeight()}`);
+            }
+
+            const processedBuffer = await image
+                .quality(90)
+                .getBufferAsync(Jimp.MIME_JPEG);
+
+            console.log(`✅ Imagem processada: ${processedBuffer.length} bytes`);
+            
+            if (processedBuffer.length > 5 * 1024 * 1024) {
+                console.log(`⚠️ Imagem muito grande, reduzindo qualidade...`);
+                return await image.quality(75).getBufferAsync(Jimp.MIME_JPEG);
+            }
+            
+            return processedBuffer;
+
+        } catch (error) {
+            console.error(`❌ Erro ao processar imagem com Jimp:`, error.message);
+            return null;
+        }
+    }
+
+    /**
+     * Gera thumbnail com Jimp
+     */
+    async gerarThumbnail(buffer, size = 256) {
+        try {
+            const image = await Jimp.read(buffer);
+            image.scaleToFit(size, size);
+            return await image.getBufferAsync(Jimp.MIME_JPEG);
+        } catch (err) {
+            console.error('Erro ao gerar thumbnail:', err);
+            return null;
+        }
+    }
+
+    // ✨ FUNÇÃO PRINCIPAL: Processa mensagens com TEXTO, IMAGEM ou VÍDEO
+    async processMessage(sock, from, userId, content, messageKey, message) {
         try {
             if (!from.endsWith('@g.us')) return null;
-            if (!content.toLowerCase().includes('#all damas')) return null;
 
             const groupId = from;
+
+            // 🔍 Detecta se tem o comando #all damas
+            const messageObj = message?.message;
+            const hasTextCommand = content?.toLowerCase().includes('#all damas');
+            const hasImage = messageObj?.imageMessage;
+            const hasVideo = messageObj?.videoMessage;
+            const imageCaption = messageObj?.imageMessage?.caption || '';
+            const videoCaption = messageObj?.videoMessage?.caption || '';
+            const hasImageCommand = imageCaption.toLowerCase().includes('#all damas');
+            const hasVideoCommand = videoCaption.toLowerCase().includes('#all damas');
+
+            // Se não tem o comando em lugar nenhum, retorna
+            if (!hasTextCommand && !hasImageCommand && !hasVideoCommand) return null;
 
             // Verifica se o grupo está ativo
             if (this.groups[groupId] && !this.groups[groupId].enabled) return null;
 
-            // VERIFICA SE O USUÁRIO É ADMIN - AGORA OBRIGATÓRIO
+            // 🔐 VERIFICA SE O USUÁRIO É ADMIN
             const isAdmin = await this.isUserAdmin(sock, groupId, userId);
             if (!isAdmin) {
                 const styledTitle = "👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸";
                 await sock.sendMessage(from, { 
                     text: `${styledTitle}\n\n🚫 *ACESSO NEGADO*\n\n❌ Apenas administradores podem usar o comando \`#all damas\`!\n\n👨‍💼 Solicite a um admin para marcar o grupo.` 
                 });
-                return { 
-                    success: true, 
-                    processed: true 
-                };
+                return { success: true, processed: true };
             }
 
             // Atualiza o grupo se necessário
@@ -90,77 +160,163 @@ class AutoTagHandler {
             const groupData = this.groups[groupId];
             if (!groupData || !groupData.participants) return null;
 
-            // 🗑️ PRIMEIRO: Remove a mensagem original que contém o comando
+            // 🗑️ Remove a mensagem original
             if (messageKey) {
                 try {
-                    console.log('🗑️ Removendo mensagem original com #all damas...');
+                    console.log('🗑️ Removendo mensagem original...');
                     await sock.sendMessage(from, { delete: messageKey });
-                    console.log('✅ Mensagem original removida com sucesso!');
+                    console.log('✅ Mensagem original removida!');
                 } catch (error) {
-                    console.error('❌ Erro ao remover mensagem original:', error);
+                    console.error('⚠️ Não foi possível remover mensagem:', error.message);
                 }
             }
 
-            // ✨ NOVA LÓGICA PARA TRATAR MENSAGENS VAZIAS
-            const cleanMessage = content.replace(/#all\s+damas/gi, '').trim();
-            
-            // Se não há mensagem, verifica se é só o comando
-            if (!cleanMessage) {
-                // Se digitou apenas "#all damas", mostra ajuda
-                if (content.trim().toLowerCase() === '#all damas') {
+            const mentions = this.generateMentions(groupData.participants, userId);
+            const styledTitle = "👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸";
+
+            // 🖼️ PROCESSA IMAGEM (usando Jimp como no hqseroticos.js)
+            if (hasImage && hasImageCommand) {
+                console.log('🖼️ Processando mensagem com IMAGEM...');
+                
+                const cleanCaption = imageCaption.replace(/#all\s+damas/gi, '').trim();
+                const finalCaption = cleanCaption || "💃✨🎉";
+                const fullCaption = `${styledTitle}\n\n${finalCaption}`;
+
+                try {
+                    // Download da imagem
+                    console.log('📥 Baixando imagem original...');
+                    const rawBuffer = await downloadMediaMessage(
+                        message,
+                        'buffer',
+                        {},
+                        {
+                            logger: console,
+                            reuploadRequest: sock.updateMediaMessage
+                        }
+                    );
+
+                    console.log(`📦 Buffer baixado: ${rawBuffer.length} bytes`);
+
+                    // Processa com Jimp (mesmo esquema do hqseroticos.js)
+                    const imageBuffer = await this.processarImagemComJimp(rawBuffer);
+
+                    if (!imageBuffer) {
+                        throw new Error('Falha ao processar imagem com Jimp');
+                    }
+
+                    // Gera thumbnail
+                    const thumb = await this.gerarThumbnail(imageBuffer, 256);
+
+                    // Envia a imagem processada
+                    await sock.sendMessage(from, {
+                        image: imageBuffer,
+                        caption: fullCaption,
+                        mentions: mentions,
+                        jpegThumbnail: thumb
+                    });
+
+                    console.log('✅ Imagem reenviada com sucesso!');
+                    this.logAutoTag(userId, groupData.name, 'IMAGEM', fullCaption, mentions.length);
+
+                    return { success: true, processed: true };
+                } catch (error) {
+                    console.error('❌ Erro ao processar imagem:', error);
+                    console.error('Stack:', error.stack);
                     await sock.sendMessage(from, { 
-                        text: `💡 *Como usar o AutoTag:*\n\n📝 Digite sua mensagem + #all damas\n\n✨ *Exemplo:*\n\`Festa hoje às 22h #all damas\`\n\n📌 Ou use apenas \`#all damas ola\` para uma saudação simples.` 
+                        text: '❌ Erro ao processar a imagem. Tente novamente.' 
                     });
                     return { success: true, processed: true };
                 }
             }
 
-            const mentions = this.generateMentions(groupData.participants, userId);
+            // 🎥 PROCESSA VÍDEO (usando Jimp para thumbnail)
+            if (hasVideo && hasVideoCommand) {
+                console.log('🎥 Processando mensagem com VÍDEO...');
+                
+                const cleanCaption = videoCaption.replace(/#all\s+damas/gi, '').trim();
+                const finalCaption = cleanCaption || "💃✨🎉";
+                const fullCaption = `${styledTitle}\n\n${finalCaption}`;
 
-            // Adiciona o título estilizado na mensagem
-            const styledTitle = "👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸";
+                try {
+                    console.log('📥 Baixando vídeo original...');
+                    const videoBuffer = await downloadMediaMessage(
+                        message,
+                        'buffer',
+                        {},
+                        {
+                            logger: console,
+                            reuploadRequest: sock.updateMediaMessage
+                        }
+                    );
+
+                    console.log(`📦 Vídeo baixado: ${videoBuffer.length} bytes`);
+
+                    await sock.sendMessage(from, {
+                        video: videoBuffer,
+                        caption: fullCaption,
+                        mentions: mentions
+                    });
+
+                    console.log('✅ Vídeo reenviado com sucesso!');
+                    this.logAutoTag(userId, groupData.name, 'VÍDEO', fullCaption, mentions.length);
+
+                    return { success: true, processed: true };
+                } catch (error) {
+                    console.error('❌ Erro ao processar vídeo:', error);
+                    console.error('Stack:', error.stack);
+                    await sock.sendMessage(from, { 
+                        text: '❌ Erro ao processar o vídeo. Tente novamente.' 
+                    });
+                    return { success: true, processed: true };
+                }
+            }
+
+            // 📝 PROCESSA TEXTO (comportamento original)
+            const cleanMessage = content.replace(/#all\s+damas/gi, '').trim();
             
-            // Se há mensagem limpa, usa ela. Se não, usa uma mensagem padrão
+            if (!cleanMessage) {
+                if (content.trim().toLowerCase() === '#all damas') {
+                    await sock.sendMessage(from, { 
+                        text: `💡 *Como usar o AutoTag:*\n\n📝 *Texto:* Digite sua mensagem + #all damas\n🖼️ *Imagem:* Envie uma foto com a legenda #all damas\n🎥 *Vídeo:* Envie um vídeo com a legenda #all damas\n\n✨ *Exemplos:*\n\`Festa hoje às 22h #all damas\`\n📸 [Foto] \`Olha essa foto #all damas\`\n🎬 [Vídeo] \`Novo vídeo #all damas\`` 
+                    });
+                    return { success: true, processed: true };
+                }
+            }
+
             const messageToSend = cleanMessage || "Olá pessoal! 💃✨🎉";
             const finalMessage = `${styledTitle}\n\n${messageToSend}`;
 
-            // 📤 SEGUNDO: Envia a mensagem limpa diretamente
-            console.log('📤 Enviando mensagem limpa...');
             await sock.sendMessage(from, {
                 text: finalMessage,
                 mentions: mentions
             });
-            console.log('✅ Mensagem limpa enviada com sucesso!');
 
-            // Log para controle
-            console.log(`\n🏷️ ========= AUTO TAG =========`);
-            console.log(`👤 Autor: ${userId}`);
-            console.log(`📱 Grupo: ${groupData.name}`);
-            console.log(`📝 Original: ${content}`);
-            console.log(`✨ Limpa: ${finalMessage}`);
-            console.log(`👥 Marcados: ${mentions.length} pessoas`);
-            console.log(`🕒 ${new Date().toLocaleString('pt-BR')}`);
-            console.log(`=====================================\n`);
+            this.logAutoTag(userId, groupData.name, 'TEXTO', finalMessage, mentions.length);
 
-            // Retorna sucesso mas sem dados para o messageHandler não processar novamente
-            return {
-                success: true,
-                processed: true
-            };
+            return { success: true, processed: true };
+
         } catch (error) {
             console.error('❌ Erro ao processar auto tag:', error);
+            console.error('Stack:', error.stack);
             return null;
         }
     }
 
+    logAutoTag(userId, groupName, type, content, mentionsCount) {
+        console.log(`\n🏷️ ========= AUTO TAG (${type}) =========`);
+        console.log(`👤 Autor: ${userId}`);
+        console.log(`📱 Grupo: ${groupName}`);
+        console.log(`📝 Conteúdo: ${content.substring(0, 100)}...`);
+        console.log(`👥 Marcados: ${mentionsCount} pessoas`);
+        console.log(`🕒 ${new Date().toLocaleString('pt-BR')}`);
+        console.log(`=====================================\n`);
+    }
+
     async isUserAdmin(sock, groupId, userId) {
         try {
-            // Primeiro tenta pelo método direto
             if (sock.isGroupAdmin) {
                 return await sock.isGroupAdmin(groupId, userId);
             }
-
-            // Método alternativo: busca nos metadados do grupo
             const groupMetadata = await sock.groupMetadata(groupId);
             const participant = groupMetadata.participants.find(p => p.id === userId);
             return participant?.admin !== null && participant?.admin !== undefined;
@@ -177,7 +333,7 @@ class AutoTagHandler {
     isGroupOutdated(groupId) {
         if (!this.groups[groupId]?.lastUpdated) return true;
         const lastUpdate = new Date(this.groups[groupId].lastUpdated);
-        return (Date.now() - lastUpdate.getTime()) > 3600000; // 1 hora
+        return (Date.now() - lastUpdate.getTime()) > 3600000;
     }
 
     async handleAdminCommands(sock, from, userId, content) {
@@ -204,7 +360,7 @@ class AutoTagHandler {
 🏷️ *STATUS DO AUTOTAG*
 
 📊 *Participantes:* ${status.participants}
-🔧 **Ativo:** ${status.enabled ? '✅ Sim' : '❌ Não'}
+🔧 *Ativo:* ${status.enabled ? '✅ Sim' : '❌ Não'}
 🔐 *Restrição:* 👨‍💼 Apenas Administradores
 🕒 *Última Atualização:* ${status.lastUpdated !== 'Nunca' ? new Date(status.lastUpdated).toLocaleString('pt-BR') : 'Nunca'}
 
@@ -228,7 +384,6 @@ class AutoTagHandler {
             return true; 
         }
 
-        // Removidos os comandos admin-on/off já que agora é sempre restrito para admins
         if (content === '!autotag-admin-on' || content === '!autotag-admin-off') {
             await sock.sendMessage(from, { 
                 text: '💡 *INFORMAÇÃO*\n\nO AutoTag agora é sempre restrito para administradores!\n\n🔐 Apenas admins podem usar `#all damas`' 
@@ -241,30 +396,43 @@ class AutoTagHandler {
 🏷️ *COMANDOS DO AUTOTAG*
 
 👨‍💼 *Para Administradores:*
-- \`Sua mensagem #all damas\` - Marca todos
-- \`!autotag-status\` - Ver status do grupo
-- \`!autotag-update\` - Atualizar lista de membros
-- \`!autotag-on/off\` - Ativar/Desativar sistema
-- \`!autotag-help\` - Esta ajuda
+
+📝 *TEXTO:*
+\`Sua mensagem #all damas\` - Marca todos
+
+🖼️ *IMAGEM:*
+1️⃣ Abra a galeria do WhatsApp
+2️⃣ Selecione uma foto
+3️⃣ Na legenda, adicione \`#all damas\`
+4️⃣ Envie!
+
+🎥 *VÍDEO:*
+1️⃣ Selecione um vídeo
+2️⃣ Na legenda, adicione \`#all damas\`
+3️⃣ Envie!
 
 🔐 *RESTRIÇÃO DE ACESSO*
 Apenas administradores podem usar o comando \`#all damas\`
 
-✨ *Como usar:*
-Digite sua mensagem normalmente e adicione \`#all damas\` no final. 
+✨ *Exemplos:*
 
-📝 *Exemplo:*
+📝 Texto:
 \`Festa hoje às 22h #all damas\`
 
-💃 **Resultado:**
+🖼️ Imagem:
+📸 [Foto] com legenda: \`Olha essa foto #all damas\`
+
+🎥 Vídeo:
+🎬 [Vídeo] com legenda: \`Novo vídeo #all damas\`
+
+💃 *Resultado:*
 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸
 
-Festa hoje às 22h
+[Sua mensagem, imagem ou vídeo]
 
-🔔 *Todos os membros recebem notificação automaticamente (menções invisíveis)*
+🔔 *Todos os membros recebem notificação automaticamente*
 
-⚠️ *A mensagem original com o comando será automaticamente removida*
-⚠️ *Usuários comuns* que tentarem usar receberão uma mensagem de acesso negado.
+⚠️ *A mensagem original será removida e reenviada com as marcações*
             `.trim();
             await sock.sendMessage(from, { text: helpText });
             return true;
@@ -291,7 +459,7 @@ Festa hoje às 22h
         const group = this.groups[groupId];
         return {
             enabled: group?.enabled ?? true,
-            adminOnly: true, // Agora sempre true
+            adminOnly: true,
             participants: group?.participants?.length ?? 0,
             lastUpdated: group?.lastUpdated ?? 'Nunca'
         };

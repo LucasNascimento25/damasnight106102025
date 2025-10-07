@@ -2,7 +2,7 @@
 import { 
     addToBlacklist, removeFromBlacklist, 
     isBlacklistedRealtime, listBlacklist, 
-    getBlacklistHelp, adminOnlyMessage 
+    getBlacklistHelp, adminOnlyMessage, normalizeNumber 
 } from './blacklistFunctions.js';
 import { getGroupAdmins, isUserAdmin } from './grupoUtils.js';
 
@@ -62,7 +62,7 @@ export async function handleBlacklistCommands(sock, from, userId, content, msg) 
         return true;
     }
 
-    // #addlista
+    // #addlista - AGORA COM REMOÇÃO AUTOMÁTICA DO GRUPO
     if (lowerContent.startsWith('#addlista ')) {
         if (!await requireAdmin()) return true;
 
@@ -78,7 +78,23 @@ export async function handleBlacklistCommands(sock, from, userId, content, msg) 
         const motivo = args.slice(2).join(' ') || `Adicionado em ${formattedDate}`;
 
         const result = await addToBlacklist(number, motivo);
-        await sendAndDelete(sock, from, { text: `${result} 🛑` }, userMsgKey, 5);
+        
+        // 🆕 REMOVE DO GRUPO AUTOMATICAMENTE SE ESTIVER EM UM GRUPO
+        if (from.endsWith('@g.us')) {
+            const normalizedId = normalizeNumber(number);
+            try {
+                console.log(`🚨 Tentando remover ${normalizedId} do grupo ${from}...`);
+                await sock.groupParticipantsUpdate(from, [normalizedId], 'remove');
+                console.log(`✅ ${normalizedId} foi removido do grupo com sucesso!`);
+                await sendAndDelete(sock, from, { text: `${result} 🛑\n\n🚨 Usuário removido do grupo automaticamente!` }, userMsgKey, 7);
+            } catch (err) {
+                console.error('❌ Erro ao remover do grupo:', err.message);
+                await sendAndDelete(sock, from, { text: `${result} 🛑\n\n⚠️ Adicionado à blacklist, mas não foi possível remover do grupo (usuário pode não estar no grupo).` }, userMsgKey, 7);
+            }
+        } else {
+            await sendAndDelete(sock, from, { text: `${result} 🛑` }, userMsgKey, 5);
+        }
+        
         return true;
     }
 

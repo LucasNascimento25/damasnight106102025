@@ -1,4 +1,4 @@
-// messageHandler.js
+// messageHandler.js - ATUALIZADO COM SUPORTE A IMAGENS, VÍDEOS E STICKERS
 import { handleBlacklistCommands } from './blacklistHandler.js';
 import { handleMusicaCommands } from './musicaHandler.js';
 import { handleMessage as handleAdvertencias } from './advertenciaGrupos.js';
@@ -11,10 +11,20 @@ import { moderacaoAvancada, reabrirGrupo, statusGrupo } from './removerCaractere
 import { handleHoroscopoCommand, listarSignos } from './horoscopoHandler.js';
 import { handleContos } from './contosHandler.js';
 import { handleHQs } from './hqseroticos.js';
-import menuDamasHandler from './menuDamasHandler.js'; // 🆕 MENU DAMAS
+import menuDamasHandler from './menuDamasHandler.js';
+import { onUserJoined, scanAndRemoveBlacklisted } from './blacklistFunctions.js';
+import { handleOwnerMenu } from './menuOwner.js';
+import { handleStickerCommand } from './stickerAdvanced.js'; // 🆕 IMPORT DO STICKER HANDLER AVANÇADO
 
 // 🏷️ Instância do AutoTag
 const autoTag = new AutoTagHandler();
+
+// 👑 NÚMEROS DOS DONOS DO BOT
+const OWNER_NUMBERS = [
+    '5521979452941',
+    '5516981874405',
+    '5521972337640'
+];
 
 export async function handleMessages(sock, message) {
     try {
@@ -24,11 +34,12 @@ export async function handleMessages(sock, message) {
         const from = message.key.remoteJid;
         const userId = message.key.participant || message.key.remoteJid;
 
-        // 🔹 Conteúdo da mensagem
+        // 🔹 Conteúdo da mensagem - ✨ MODIFICADO: Adicionado suporte para vídeo
         const content =
             message.message.conversation ||
             message.message.extendedTextMessage?.text ||
             message.message.imageMessage?.caption ||
+            message.message.videoMessage?.caption ||
             '';
 
         // 🔹 Ignora mensagens vazias, do próprio bot ou do sistema
@@ -48,55 +59,59 @@ export async function handleMessages(sock, message) {
 
         let handled = false;
 
-        // 🔹 PRIORIDADE 0: Banimento de usuário
+        // 👑 PRIORIDADE 0: MENU DO OWNER (comando secreto)
+        if (!handled) {
+            handled = await handleOwnerMenu(sock, from, userId, content, OWNER_NUMBERS);
+        }
+
+        // 🔹 PRIORIDADE 1: Banimento de usuário
         if (!handled && from.endsWith('@g.us')) {
             await handleBanMessage(sock, message);
         }
 
-        // 🔹 PRIORIDADE 1: Comandos de administração de grupo (#rlink, #fdamas, #abrir)
+        // 🔹 PRIORIDADE 2: Comandos de administração de grupo (#rlink, #fdamas, #abrir)
         if (!handled) {
             handled = await handleGroupCommands(sock, message);
         }
 
-        // 🔹 PRIORIDADE 2: Comandos de AutoTag 
+        // 🔹 PRIORIDADE 3: Comandos de AutoTag 
         if (!handled && from.endsWith('@g.us')) {
             handled = await autoTag.handleAdminCommands(sock, from, userId, content);
         }
 
-        // 🔹 PRIORIDADE 3: Processar AutoTag (#all damas)
+        // 🔹 PRIORIDADE 4: Processar AutoTag (#all damas) - ✨ MODIFICADO: Suporte a imagens e vídeos
         if (!handled) {
-            const tagResult = await autoTag.processMessage(sock, from, userId, content, message.key);
+            const tagResult = await autoTag.processMessage(
+                sock, 
+                from, 
+                userId, 
+                content, 
+                message.key,
+                message  // ← ADICIONADO: Passa o objeto message completo
+            );
 
-            if (tagResult) {
-                if (tagResult.error) {
-                    await sock.sendMessage(from, { text: tagResult.message });
-                    return;
-                }
-
-                // 🗑️ REMOVE A MENSAGEM ORIGINAL PRIMEIRO
-                console.log('🗑️ Removendo mensagem original com #all damas...');
-                await autoTag.deleteOriginalMessage(sock, from, message.key);
-
-                // 📤 DEPOIS ENVIA A NOVA MENSAGEM LIMPA
-                await sock.sendMessage(from, {
-                    text: tagResult.cleanMessage || ' ',
-                    mentions: tagResult.mentions
-                });
-
-                console.log(`\n🏷️ ========= AUTO TAG =========`);
-                console.log(`👤 Autor: ${userId}`);
-                console.log(`📱 Grupo: ${tagResult.groupName}`);
-                console.log(`📝 Original: ${tagResult.originalMessage}`);
-                console.log(`✨ Limpa: ${tagResult.cleanMessage}`);
-                console.log(`👥 Marcados: ${tagResult.tagsCount} pessoas`);
-                console.log(`🕒 ${new Date().toLocaleString('pt-BR')}`);
-                console.log(`=====================================\n`);
-
+            // Se o AutoTag processou a mensagem (texto, imagem ou vídeo), não faz mais nada
+            if (tagResult?.processed) {
                 return;
             }
         }
 
-        // 🆕 PRIORIDADE 4: COMANDOS DE CONTOS (#contos, #ler, #aleatorio, etc)
+        // 🆕 🎨 PRIORIDADE 5: COMANDOS DE STICKER (#stickerdamas, #buscargif, #gifsticker)
+        if (!handled) {
+            const lowerContent = content.toLowerCase().trim();
+            
+            // Verifica se é algum dos comandos de sticker
+            if (lowerContent.startsWith('#stickerdamas') || 
+                lowerContent.startsWith('#buscargif') || 
+                lowerContent.startsWith('#gifsticker')) {
+                
+                await handleStickerCommand(sock, message);
+                handled = true;
+                console.log(`🎨 Comando de sticker processado: ${lowerContent.split(' ')[0]}`);
+            }
+        }
+
+        // 🆕 PRIORIDADE 6: COMANDOS DE CONTOS (#contos, #ler, #aleatorio, etc)
         if (!handled) {
             const lowerContent = content.toLowerCase().trim();
             const isContoCommand = lowerContent.startsWith('#contos') ||
@@ -112,7 +127,7 @@ export async function handleMessages(sock, message) {
             }
         }
 
-        // 🆕 PRIORIDADE 5: COMANDOS DE HQS (#hqs, #hq, #pag, etc)
+        // 🆕 PRIORIDADE 7: COMANDOS DE HQS (#hqs, #hq, #pag, etc)
         if (!handled) {
             const lowerContent = content.toLowerCase().trim();
             const isHQCommand = lowerContent.startsWith('#hqs') ||
@@ -133,7 +148,7 @@ export async function handleMessages(sock, message) {
             }
         }
 
-        // 🆕 PRIORIDADE 6: MENU DAMAS (#menudamas)
+        // 🆕 PRIORIDADE 8: MENU DAMAS (#menudamas)
         if (!handled) {
             const lowerContent = content.toLowerCase().trim();
             
@@ -143,31 +158,6 @@ export async function handleMessages(sock, message) {
                 console.log('📋 Menu Damas exibido');
             }
         }
-
-        // ❌ PRIORIDADE 7: COMANDOS DE CARTOONS - DESABILITADO
-        // Se quiser habilitar, descomente o import no topo e este bloco:
-        /*
-        if (!handled) {
-            const lowerContent = content.toLowerCase().trim();
-            const isCartoonCommand = lowerContent.startsWith('#cartoons') ||
-                                    lowerContent.startsWith('#cartoon ') ||
-                                    lowerContent.startsWith('#pagcartoon') ||
-                                    lowerContent.startsWith('#proximacartoon') ||
-                                    lowerContent.startsWith('#proxcartoon') ||
-                                    lowerContent.startsWith('#anteriorcartoon') ||
-                                    lowerContent.startsWith('#antcartoon') ||
-                                    lowerContent.startsWith('#aleatoriocartoon') ||
-                                    lowerContent.startsWith('#randomcartoon') ||
-                                    lowerContent.startsWith('#categoriacartoon') ||
-                                    lowerContent.startsWith('#atualizarcartoons') ||
-                                    lowerContent.startsWith('#ajudacartoons') ||
-                                    lowerContent.startsWith('#helpcartoons');
-
-            if (isCartoonCommand) {
-                handled = await handleCartoons(sock, message);
-            }
-        }
-        */
 
         // 🔹 Comandos de blacklist (somente admins em grupo)
         if (!handled) {
@@ -183,6 +173,39 @@ export async function handleMessages(sock, message) {
                 isAdmin,
                 pool
             );
+        }
+
+        // 🆕 COMANDO MANUAL DE VARREDURA (#varredura) - VERSÃO CORRIGIDA
+        if (!handled && content.toLowerCase().trim() === '#varredura' && from.endsWith('@g.us')) {
+            try {
+                // 🔧 VERIFICAÇÃO DE ADMIN CORRIGIDA
+                const groupMetadata = await sock.groupMetadata(from);
+                const participant = groupMetadata.participants.find(p => p.id === userId);
+                const isAdmin = participant?.admin === 'admin' || participant?.admin === 'superadmin';
+                
+                console.log(`🔍 DEBUG VARREDURA:`);
+                console.log(`   - Usuário: ${userId}`);
+                console.log(`   - É Admin? ${isAdmin}`);
+                console.log(`   - Tipo: ${participant?.admin || 'member'}`);
+                
+                if (!isAdmin) {
+                    await sock.sendMessage(from, {
+                        text: '👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 🚫 Este comando só pode ser usado por administradores!'
+                    });
+                    handled = true;
+                } else {
+                    console.log(`🔍 Iniciando varredura manual no grupo ${from}...`);
+                    const result = await scanAndRemoveBlacklisted(from, sock);
+                    await sock.sendMessage(from, { text: result });
+                    handled = true;
+                }
+            } catch (err) {
+                console.error('❌ Erro ao executar #varredura:', err);
+                await sock.sendMessage(from, {
+                    text: '❌ Erro ao executar comando de varredura.'
+                });
+                handled = true;
+            }
         }
 
         // 🔹 Comando de horóscopo (#horoscopo, #signos)
@@ -236,5 +259,43 @@ export async function updateGroupOnJoin(sock, groupId) {
         console.log(`✅ Grupo ${groupId} atualizado automaticamente: ${count} membros`);
     } catch (error) {
         console.error('❌ Erro ao atualizar grupo:', error);
+    }
+}
+
+// 🆕 🚨 VERIFICAÇÃO DE BLACKLIST QUANDO ALGUÉM ENTRA NO GRUPO
+export async function handleGroupParticipantsUpdate(sock, update) {
+    try {
+        const { id: groupId, participants, action } = update;
+
+        console.log(`\n👥 ========= EVENTO DE GRUPO =========`);
+        console.log(`📱 Grupo: ${groupId}`);
+        console.log(`🎬 Ação: ${action}`);
+        console.log(`👤 Participantes: ${participants.join(', ')}`);
+        console.log(`=====================================\n`);
+
+        // 🤖 QUANDO O BOT ENTRA NO GRUPO - FAZ VARREDURA AUTOMÁTICA
+        if (action === 'add' && participants.includes(sock.user?.id)) {
+            console.log('🤖 Bot foi adicionado ao grupo! Iniciando varredura automática...');
+            await scanAndRemoveBlacklisted(groupId, sock);
+        }
+
+        // 👤 QUANDO ALGUÉM ENTRA NO GRUPO - VERIFICA SE ESTÁ NA BLACKLIST
+        if (action === 'add') {
+            for (const userId of participants) {
+                // Pula se for o próprio bot
+                if (userId === sock.user?.id) continue;
+                
+                console.log(`🔍 Verificando ${userId} na blacklist...`);
+                
+                // Chama a função de verificação e remoção automática
+                await onUserJoined(userId, groupId, sock);
+            }
+
+            // Também atualiza o grupo para AutoTag
+            await updateGroupOnJoin(sock, groupId);
+        }
+
+    } catch (err) {
+        console.error('❌ Erro ao processar atualização de participantes:', err);
     }
 }

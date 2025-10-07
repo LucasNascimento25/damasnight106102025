@@ -1,4 +1,4 @@
-// despedidaMembro.js
+// despedidaMembro.js -> E chamada no bot.js
 
 import Jimp from 'jimp';
 import axios from 'axios';
@@ -57,11 +57,38 @@ async function sendMediaWithThumbnail(sock, jid, buffer, caption, mentions = [])
  * @param {object} socket - instância do Baileys
  * @param {string} groupId - ID do grupo
  * @param {string} participant - ID do participante
+ * @param {string} action - Ação realizada: 'remove' ou 'leave'
  */
-export const configurarDespedida = async (socket, groupId, participant) => {
+export const configurarDespedida = async (socket, groupId, participant, action, author) => {
     try {
         const participantName = participant.split('@')[0];
-        console.log(`Nome do participante: ${participantName}`);
+        const authorName = author ? author.split('@')[0] : 'desconhecido';
+        
+        console.log(`\n========================================`);
+        console.log(`📋 EVENTO DE DESPEDIDA DETECTADO`);
+        console.log(`========================================`);
+        console.log(`👤 Participante: ${participantName}`);
+        console.log(`👮 Author (quem executou): ${authorName}`);
+        console.log(`🔔 Ação recebida: "${action}"`);
+        console.log(`📍 Grupo ID: ${groupId}`);
+        console.log(`⏰ Timestamp: ${new Date().toLocaleString('pt-BR')}`);
+        console.log(`========================================\n`);
+        
+        // 🔥 LÓGICA CORRIGIDA: Verifica se foi saída voluntária
+        // Se o author é o mesmo que o participant, a pessoa saiu por conta própria
+        const saiuVoluntariamente = author === participant;
+        
+        console.log(`🤔 Verificando tipo de saída...`);
+        console.log(`   Author: ${author}`);
+        console.log(`   Participant: ${participant}`);
+        console.log(`   São iguais? ${saiuVoluntariamente ? 'SIM ✅' : 'NÃO ❌'}`);
+        
+        if (!saiuVoluntariamente) {
+            console.log(`❌ Participante ${participantName} foi REMOVIDO por outra pessoa. Despedida NÃO será enviada.`);
+            return;
+        }
+
+        console.log(`✅ Participante ${participantName} saiu VOLUNTARIAMENTE. Enviando despedida...`);
 
         // Lista de URLs de imagens/GIFs de despedida
         const farewellImages = [
@@ -81,7 +108,7 @@ export const configurarDespedida = async (socket, groupId, participant) => {
             'https://i.ibb.co/tTv7bJC8/Image-fx-13.jpg'
         ];
 
-        // Lista de mensagens de despedida
+        // Lista de mensagens de despedida (apenas 2)
         const farewellMessages = [
 
         `💔 *Pior que "quem é você?"* @${participantName}\nO grupo vai ficar mais leve agora, e talvez até com mais inteligência.😏😹\nBoa sorte no mundo real! 😹`,
@@ -143,73 +170,45 @@ export const configurarDespedida = async (socket, groupId, participant) => {
         `👻🕵️‍♂️ Desapareceu na neblina! @${participantName}\nFiquei sem entender muito bem, mas boa sorte no mundo fora daqui!\n😜 Nos avise quando voltar a fazer bagunça por aqui! 😂`,
         `🎮❌ *Saindo da partida!* @${participantName}\nAgora o time vai sentir a falta do seu game, mas bora jogar no modo solo por um tempo.\n😆 Vai com tudo e volta quando tiver saudade! 💥`,
         `🤡👋 *Olha quem resolveu vazar!* @${participantName}\nVocê entrou, não falou nada, e agora tá saindo igual ladrão de galinha! 🐔😂\nAté mais, invisível! 👻`,
-
         `😂🎪 *Lá vai o palhaço!* @${participantName}\nO circo ficou mais vazio, mas pelo menos agora sobra pipoca pra gente! 🍿\nVai com Deus e com suas piadas ruins! 🤣`,
-
         `🏃‍♂️💨 *Correee que o Sonic tá perdendo!* @${participantName}\nVocê saiu mais rápido que criança quando a mãe chama pra lavar louça! 😹\nFlw, Flash! ⚡`,
-
         `🦗🔇 *Silêncio no estúdio!* @${participantName}\nEspera... você falou alguma coisa antes de sair? Porque ninguém percebeu! 😂\nAté nunca, mudo(a)! 🤐`,
-
         `🎭😭 *Que drama, hein!* @${participantName}\nSaiu igual ator de novela mexicana... cheio de efeitos especiais mas ninguém entendeu nada! 📺😂\nAté logo, protagonista! 🌟`,
-
         `🧟‍♂️💀 *O zumbi acordou e resolveu sair!* @${participantName}\nVocê dava menos sinal de vida que múmia no museu! 🏛️\nBoa sorte no além, criatura! 😹`,
-
         `🦖🦕 *Era dos dinossauros!* @${participantName}\nSuas mensagens eram tão raras que achei que você tinha entrado em extinção! 🌋\nAdeus, fóssil! 💀😂`,
-
         `🎯❌ *Errou o alvo!* @${participantName}\nVocê entrou no grupo errado, ficou perdido(a), e agora tá saindo mais perdido(a) ainda! 🗺️😂\nGPS tá precisando de atualização, hein! 📱`,
-
         `🍕🚪 *Saiu antes da pizza chegar!* @${participantName}\nSempre sai na hora boa, né? Genial! 🤦‍♂️\nMais sorte da próxima vez! 😂🍕`,
-
         `🎬🎞️ *Cortaaaa!* @${participantName}\nSua participação nesse filme foi tão curta que nem apareceu nos créditos! 🎥\nNem o elenco de apoio te reconhece! 😹`,
-
         `🐌🏃‍♀️ *Passou um caracol e você ainda perdeu!* @${participantName}\nSua lentidão em responder era lendária! 🏆\nAgora até a lesma tá rindo de você! 🐌😂`,
-
         `🎪🤹 *O malabarista caiu!* @${participantName}\nTentou fazer várias coisas ao mesmo tempo, não fez nada, e agora tá indo embora! 😂\nAplausos pra essa performance! 👏😹`,
-
         `☕🥱 *Mais devagar que internet da vovó!* @${participantName}\nVocê demorava tanto pra responder que a mensagem chegava por telegrama! 📠\nBye bye, Jurassic Park! 🦕`,
-
         `🎲🎰 *Jogou, perdeu e vazou!* @${participantName}\nSua sorte no grupo foi tipo bilhete de rifa... nunca ganha nada! 🎟️😂\nTenta de novo em 2050! 🚀`,
-
         `🌵🏜️ *Olha o deserto ambulante!* @${participantName}\nSuas mensagens eram mais secas que o Saara! ☀️\nPelo menos agora a gente economiza água! 💧😹`,
-
         `🎸🔇 *A banda desafinou!* @${participantName}\nVocê era tipo aquele instrumento que ninguém sabe tocar... e nem queria aprender! 🎺\nTchau, triângulo do grupo! 😂`,
-
         `🦸‍♂️🦸‍♀️ *Anti-herói saiu de cena!* @${participantName}\nSeu super poder era sumir sem explicação! 💨\nMarvel tá querendo te contratar! 🎬😹`,
-
         `🌪️🍃 *Passou tipo vento!* @${participantName}\nFez menos barulho que pum de formiga! 🐜\nNem sentimos sua presença! 😂👋`,
-
         `🎮👾 *Game Over!* @${participantName}\nSuas lives foram tão curtas que nem chegou na fase 2! 🕹️\nTenta o modo fácil da próxima vez! 😹`,
-
         `🍔🍟 *Saiu antes do lanche!* @${participantName}\nQuem sai no meio da farra não come da farofa! 🎉\nFica aí com fome mesmo! 😂🍴`,
-
         `🚁🪂 *Helicóptero Apache!* @${participantName}\nVocê helicóptero apache que só passa voando e não pousa nunca! 🚁\nAté a próxima sobrevoada! 😂✈️`,
-
         `🎪🤡 *Esqueceu a peruca!* @${participantName}\nO palhaço saiu mas a piada ficou... você! 😂🔴\nVolta pra pegar seu nariz vermelho! 👃`,
-
         `📱🔋 *Bateria: 0%* @${participantName}\nSua energia no grupo sempre foi baixa mesmo! ⚡\nVai carregar aí e não volta! 🔌😹`,
-
         `🎯🙈 *Nem acertou, nem errou... nem apareceu!* @${participantName}\nVocê foi tipo aquele amigo imaginário... só que sem a parte imaginária! 👻\nAdeus, John Cena do WhatsApp! 😂`,
-
         `🍿🎬 *Saiu no trailer!* @${participantName}\nNem chegou no filme completo e já desistiu! 🎥\nSpoiler: ninguém sentiu sua falta! 😹🍿`,
-
         `🦄🌈 *Mais raro que unicórnio!* @${participantName}\nSuas aparições eram lendárias... literalmente nunca existiram! 🐴\nVai pastar em outro grupo! 😂`,
-
         `🎲🃏 *Curinga fora do baralho!* @${participantName}\nVocê era a carta que ninguém queria jogar! ♠️♥️\nBoa sorte no próximo jogo de truco! 🎴😹`,
-
         `🌙⭐ *Estrela cadente versão turtle!* @${participantName}\nCaiu devagar, não brilhou nada, e ninguém fez pedido! 💫\nTchau, meteorito meia-boca! 🪨😂`,
-
         `🎺📯 *A fanfarra desistiu!* @${participantName}\nAté a banda parou de tocar quando você saiu... de alívio! 🎵\nMenos um pra desafinar! 😹🎶`,
-
         `🦖💤 *Dormiu na era do gelo!* @${participantName}\nVocê hibernou tanto que perdeu todas as estações! ❄️🌸☀️🍂\nAcorda em 2077! 🤖😂`
-           
+
     ];
 
         // Seleciona aleatoriamente uma imagem e uma mensagem
         const randomImage = farewellImages[Math.floor(Math.random() * farewellImages.length)];
         const randomFarewellMessage = farewellMessages[Math.floor(Math.random() * farewellMessages.length)];
         
-        console.log(`Imagem selecionada: ${randomImage}`);
-        console.log("Enviando GIF/imagem e mensagem de despedida...");
+        console.log(`🖼️ Imagem selecionada: ${randomImage}`);
+        console.log(`💬 Mensagem: ${randomFarewellMessage.substring(0, 50)}...`);
+        console.log("📤 Enviando GIF/imagem e mensagem de despedida...");
 
         // Baixa a imagem/GIF como buffer
         const res = await axios.get(randomImage, { responseType: 'arraybuffer' });
@@ -218,8 +217,9 @@ export const configurarDespedida = async (socket, groupId, participant) => {
         // Envia a imagem/GIF com thumbnail
         await sendMediaWithThumbnail(socket, groupId, buffer, randomFarewellMessage, [participant]);
 
-        console.log("GIF/imagem e mensagem de despedida enviados com sucesso!");
+        console.log("✅ GIF/imagem e mensagem de despedida enviados com sucesso!\n");
     } catch (error) {
-        console.error('Erro ao processar a despedida:', error.message || error);
+        console.error('❌ Erro ao processar a despedida:', error.message || error);
+        console.error('Stack trace:', error.stack);
     }
 };

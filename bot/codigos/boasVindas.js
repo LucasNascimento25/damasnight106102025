@@ -1,97 +1,118 @@
-import Jimp from 'jimp';
-import axios from 'axios';
+import Jimp from "jimp";
+import axios from "axios";
 
 /**
  * Gera uma thumbnail da imagem a partir de um buffer
  */
 async function gerarThumbnail(buffer, size = 256) {
-    try {
-        const image = await Jimp.read(buffer);
-        image.resize(size, size);
-        return await image.getBufferAsync(Jimp.MIME_PNG);
-    } catch (err) {
-        console.error('Erro ao gerar thumbnail:', err);
-        return null;
-    }
+  try {
+    const image = await Jimp.read(buffer);
+    await image.resize(size, size);
+    return await image.getBufferAsync(Jimp.MIME_PNG);
+  } catch (err) {
+    console.error("Erro ao gerar thumbnail:", err);
+    return null;
+  }
 }
 
 /**
  * Envia imagem com thumbnail usando Baileys
  */
-async function sendImageWithThumbnail(sock, jid, imageBuffer, caption, mentions = []) {
-    try {
-        const thumb = await gerarThumbnail(imageBuffer, 256);
-        await sock.sendMessage(jid, {
-            image: imageBuffer,
-            caption,
-            jpegThumbnail: thumb,
-            mentions
-        });
-        console.log('✅ Imagem com thumbnail enviada com sucesso');
-        return true;
-    } catch (err) {
-        console.error('❌ Erro ao enviar imagem com thumbnail:', err);
-        await sock.sendMessage(jid, { text: caption, mentions });
-        return false;
+async function sendImageWithThumbnail(
+  sock,
+  jid,
+  imageBuffer,
+  caption,
+  mentions = []
+) {
+  try {
+    const thumb = await gerarThumbnail(imageBuffer, 256);
+
+    const messageOptions = {
+      image: imageBuffer,
+      caption,
+      mentions,
+    };
+
+    if (thumb) {
+      messageOptions.jpegThumbnail = thumb;
     }
+
+    await sock.sendMessage(jid, messageOptions);
+    console.log("✅ Imagem com thumbnail enviada com sucesso");
+    return true;
+  } catch (err) {
+    console.error("❌ Erro ao enviar imagem com thumbnail:", err);
+    // Fallback: enviar só o texto
+    try {
+      await sock.sendMessage(jid, { text: caption, mentions });
+    } catch (fallbackErr) {
+      console.error("❌ Erro no fallback:", fallbackErr);
+    }
+    return false;
+  }
 }
 
 /**
  * Envia as regras do grupo após 10 segundos
  */
 async function enviarRegrasAposDelay(socket, groupId, participant) {
-    setTimeout(async () => {
-        try {
-            console.log('⏰ Enviando regras após 10 segundos...');
-            
-            const participantName = participant.split('@')[0];
-            const groupMetadata = await socket.groupMetadata(groupId);
-            const regras = groupMetadata.desc || "Não há regras definidas na descrição do grupo.";
-            
-            const mensagem = `📋 *REGRAS DO GRUPO* 📋\n\n@${participantName}, aqui estão as regras:\n\n${regras}\n\n⚠️ *Por favor, leia com atenção e siga todas as orientações!*`;
-            
-            await socket.sendMessage(groupId, {
-                text: mensagem,
-                mentions: [participant]
-            });
-            
-            console.log('✅ Regras enviadas com sucesso para', participantName);
-            
-        } catch (error) {
-            console.error('❌ Erro ao enviar regras:', error.message);
-            
-            // Tentativa de fallback caso haja erro
-            try {
-                await socket.sendMessage(groupId, {
-                    text: `@${participant.split('@')[0]}, houve um erro ao carregar as regras. Por favor, verifique a descrição do grupo.`,
-                    mentions: [participant]
-                });
-            } catch (fallbackError) {
-                console.error('❌ Erro no fallback:', fallbackError.message);
-            }
-        }
-    }, 10000); // 10 segundos
+  setTimeout(async () => {
+    try {
+      console.log("⏰ Enviando regras após 10 segundos...");
+
+      const participantName = participant.split("@")[0];
+      const groupMetadata = await socket.groupMetadata(groupId);
+      const regras =
+        groupMetadata.desc || "Não há regras definidas na descrição do grupo.";
+
+      const mensagem = `📋 *REGRAS DO GRUPO* 📋\n\n@${participantName}, aqui estão as regras:\n\n${regras}\n\n⚠️ *Por favor, leia com atenção e siga todas as orientações!*`;
+
+      await socket.sendMessage(groupId, {
+        text: mensagem,
+        mentions: [participant],
+      });
+
+      console.log("✅ Regras enviadas com sucesso para", participantName);
+    } catch (error) {
+      console.error("❌ Erro ao enviar regras:", error);
+
+      // Tentativa de fallback caso haja erro
+      try {
+        await socket.sendMessage(groupId, {
+          text: `@${
+            participant.split("@")[0]
+          }, houve um erro ao carregar as regras. Por favor, verifique a descrição do grupo.`,
+          mentions: [participant],
+        });
+      } catch (fallbackError) {
+        console.error("❌ Erro no fallback:", fallbackError);
+      }
+    }
+  }, 10000); // 10 segundos
 }
 
 /**
- * Envia o menu de entretenimento após 20 segundos
+ * Envia o menu de entretenimento após 1 minuto (60 segundos)
  */
 async function enviarMenuEntretenimento(socket, groupId, participant) {
-    setTimeout(async () => {
-        try {
-            console.log('⏰ Enviando menu de entretenimento após 20 segundos...');
-            
-            const participantName = participant.split('@')[0];
-            
-            const menuMessage = `🌟✨━━━━━━━━━━━━━━━━━━✨🌟
-👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸
+  setTimeout(async () => {
+    try {
+      console.log("⏰ Enviando menu de entretenimento após 1 minuto...");
+
+      const participantName = participant.split("@")[0];
+
+      const menuMessage = `
+👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 \n 
+
 🎪 *NOVO MENU DE ENTRETENIMENTO* 🎪
 🔥 Comandos exclusivos liberados! 🔥
 ━━━━━━━━━━━━━━━━━━━━━━━
 📱 *DIGITE NO GRUPO:*
    ➤ #menudamas
 ━━━━━━━━━━━━━━━━━━━━━━━
-📋 *COMANDOS DISPONÍVEIS:*
+📋 *COMANDOS DISPONÍVEIS:* \n
+🎨 #stickerdamas - Criar stickers
 🔮 #signos - Lista todos os signos
 🌟 #horoscopo - Horóscopo do dia
 🌶️ #contos - Contos picantes
@@ -99,178 +120,206 @@ async function enviarMenuEntretenimento(socket, groupId, participant) {
 🎵 #damas music - Buscar músicas
 ━━━━━━━━━━━━━━━━━━━━━━━
 ✨ *Diversão garantida!* ✨
-💃 *Aproveite e compartilhe!* 🍾
+💃 *Aproveite e compartilhe!* 🍾 \n 
 © *Damas da Night*
-🌟✨━━━━━━━━━━━━━━━━━━✨🌟
 
 @${participantName}, explore todos os comandos! 🎉`;
-            
-            await socket.sendMessage(groupId, {
-                text: menuMessage,
-                mentions: [participant]
-            });
-            
-            console.log('✅ Menu de entretenimento enviado com sucesso para', participantName);
-            
-        } catch (error) {
-            console.error('❌ Erro ao enviar menu de entretenimento:', error.message);
-            
-            // Tentativa de fallback caso haja erro
-            try {
-                await socket.sendMessage(groupId, {
-                    text: `@${participant.split('@')[0]}, digite #menudamas para ver todos os comandos disponíveis! 🎉`,
-                    mentions: [participant]
-                });
-            } catch (fallbackError) {
-                console.error('❌ Erro no fallback do menu:', fallbackError.message);
-            }
-        }
-    }, 20000); // 20 segundos
+
+      await socket.sendMessage(groupId, {
+        text: menuMessage,
+        mentions: [participant],
+      });
+
+      console.log(
+        "✅ Menu de entretenimento enviado com sucesso para",
+        participantName
+      );
+    } catch (error) {
+      console.error("❌ Erro ao enviar menu de entretenimento:", error);
+
+      // Tentativa de fallback caso haja erro
+      try {
+        await socket.sendMessage(groupId, {
+          text: `@${
+            participant.split("@")[0]
+          }, digite #menudamas para ver todos os comandos disponíveis! 🎉`,
+          mentions: [participant],
+        });
+      } catch (fallbackError) {
+        console.error("❌ Erro no fallback do menu:", fallbackError);
+      }
+    }
+  }, 60000); // ✅ 60 segundos = 1 minuto
 }
 
 /**
  * Configura mensagens de boas-vindas
  */
 export const configurarBoasVindas = async (socket, groupId, participant) => {
+  try {
+    console.log("🎉 Iniciando boas-vindas para:", participant);
+
+    const participantName = participant.split("@")[0];
+
+    // Obtendo foto de perfil
+    let profilePictureUrl;
     try {
-        console.log('🎉 Iniciando boas-vindas para:', participant);
-        
-        const participantName = participant.split('@')[0];
+      profilePictureUrl = await socket.profilePictureUrl(participant, "image");
+      console.log("✅ Foto de perfil obtida");
+    } catch (error) {
+      console.log("⚠️ Usando foto padrão");
+      profilePictureUrl = "https://images2.imgbox.com/a5/a4/gyGTUylB_o.png";
+    }
 
-        // Obtendo foto de perfil
-        let profilePictureUrl;
-        try {
-            profilePictureUrl = await socket.profilePictureUrl(participant, 'image');
-            console.log('✅ Foto de perfil obtida');
-        } catch (error) {
-            console.log('⚠️ Usando foto padrão');
-            profilePictureUrl = 'https://images2.imgbox.com/a5/a4/gyGTUylB_o.png';
-        }
-
-        // Mensagens de boas-vindas
-        const welcomeMessages = [
-            
-        `🎉💃 *BEM-VINDO(A) ao grupo* 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\n@${participantName} ✨🎉\n\nAqui é um espaço de interação e diversão 24 horas! 🕛🔥\n\nParticipe das conversas e aproveite bons momentos com a gente! 💃🎶🍾🍸\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
-
-        `💃👏 *OBA! TEMOS NOVIDADES!* 🎊✨\n\n*SEJA MUITO BEM-VINDO(A) AO GRUPO* 🌟💬\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\n@${participantName}, sua presença já deixou tudo mais animado! 🙌🎉\n\n🎈 Aqui é o espaço perfeito pra se divertir e trocar ideias incríveis, 24/7! 💬🔥\n\n⏰ *Em 10 segundos você receberá as regras!*`,
-
-        `💃👏 *SENSACIONAL!* ✨\n*MAIS UMA PESSOA ANIMADA NO GRUPO!* 🎉🔥\n\n*OLÁ*, @${participantName} 🌟💃\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸 está em festa com sua chegada! 🙌💥\n\n🎈 Aqui a diversão rola solta e a troca de ideias não para, 24/7! 💬✨\n\nSinta-se à vontade para interagir e brilhar com a galera! 🌟🥳\n\n⏰ *Aguarde as regras em 10 segundos!*`,
-
-        `💃💥 *ESTOUROU!* 🎇\n*NOSSO GRUPO GANHOU MAIS UM MEMBRO SUPER ESTILO(A)!* 🔥✨\n\n🥳 *SEJA MUITO BEM-VINDO(A)* @${participantName} 🌟🎶\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸 está com tudo agora com você por aqui! 💬✨\n\n🚀 Aqui o clima é de energia positiva e muita conexão!\n\nNão economize nos emojis e nem nas risadas! 😂\n\n⏰ *Logo mais envio as regras do grupo!*`,
-            
-        `💃🎶🔥 *BEM-VINDO(A) ao grupo* 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\n@${participantName} 💃🍾\n\nVocê acaba de aterrissar no grupo mais animado de todos! 💃🎶🍾🍸\n\nO clima aqui é pura festa, diversão e muita interação 24h por dia! 🕛🔥\n\nVamos agitar as conversas e aproveitar cada segundo com muita alegria! 💬🎶🍾🍸\n\n⏰ *Regras chegando em 10 segundos!*`,
-
-        `💃🎊🌟 *PREPARA QUE A DIVERSÃO COMEÇOU* @${participantName} 🎉\n\nAgora a vibe é só alegria, dança e muita energia boa no\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nA festa agora tá completa com você por aqui!\n\nO clima é de pura energia 24h por dia! 🕛🔥\n\nVamos agitar, dançar e se divertir até não aguentar mais! 💬🎶🍾🍸\n\n⏰ *Aguarde 10 segundos para receber as regras!*`,
-
-        `💃🍾🍸 *BEM-VINDO(A) ao grupo* 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\n@${participantName}\n\n*Agora a energia do grupo subiu!* 🚀\n\nAqui, a diversão não tem hora pra começar e nem pra terminar!\n\n*24h de pura interação e boas vibrações!* 🕛🔥\n\nPrepare-se para momentos épicos com muitos emojis, risadas e danças até o amanhecer! 💃🎶🍾🍸\n\n⏰ *Em breve enviarei as regras!*`,
-
-        `🎉👏💃 *BEM-VINDO(A)* @${participantName}\n*ao grupo* 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAgora o grupo está ainda mais poderoso!\n\n🚀💃 Prepare-se para uma onda de diversão, risadas e muita dança! 🎶🔥\n\nAqui, a diversão nunca para!\n\nEmojis, vibrações positivas e muita interação o tempo todo! 🕛🎉\n\n⏰ *Regras a caminho em 10 segundos!*`,
-
-        `👏💃🔥 *BEM-VINDO(A)* @${participantName}\n*ao grupo* 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAgora o clima do grupo está ON FIRE! 🔥\n\nVamos criar momentos inesquecíveis com muitas risadas, emojis e danças! 🎶💥\n\n*Aqui, a diversão é garantida 24h por dia! Não tem hora pra parar!* 💃🕛🍸🍾\n\n⏰ *Aguarde as regras do grupo!*`,
-
-        `🎉💥 *BEM-VINDO(A)* @${participantName}\n*ao grupo* 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nA vibe do grupo acaba de subir ainda mais com você aqui! 🚀🎶\n\nPrepare-se para curtir uma energia contagiante, com risadas, dança e emojis 24h por dia! 💃🎉🔥\n\nAqui, a diversão nunca tem fim!\n\nVamos agitar, rir e viver os melhores momentos juntos! 🎊🍾🕛\n\n⏰ *Em 10 segundos receba as regras!*`,
-             `🎊✨ *CHEGOU MAIS UM(A) ESTRELA!* 🌟💃\n\n@${participantName}, você acabou de entrar no melhor grupo da galáxia!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAqui a vibe é sempre alta e a diversão não para nunca! 🚀🔥\n\nPreparado(a) para muita interação e momentos incríveis? 💬✨\n\n⏰ *As regras chegarão em 10 segundos!*`,
-
-        `💃🎉 *QUE ENTRADA TRIUNFAL!* 👑✨\n\n*SEJA BEM-VINDO(A)* @${participantName} ao paraíso da diversão!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAqui você vai encontrar pessoas incríveis e muita alegria! 🎊💥\n\n*A festa começa agora com você!* 24/7 de pura energia! 🕛🔥\n\n⏰ *Aguarde 10 segundos para as regras!*`,
-
-        `🔥💥 *EXPLOSÃO DE ALEGRIA!* 🎆🎉\n\n@${participantName}, o grupo estava esperando por você!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAgora sim a festa está completa! 💃🍾\n\nPreparado(a) para curtir sem parar? A diversão aqui é 24h! 🕛✨\n\n⏰ *Regras a caminho!*`,
-
-        `🎶💃 *A PISTA ESTÁ CHAMANDO!* 🔥🍸\n\n*BEM-VINDO(A)* @${participantName} ao grupo mais animado do momento!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAqui é só alegria, música e muita conexão! 🎊💬\n\nVamos dançar, rir e aproveitar cada segundo juntos! 🙌🔥\n\n⏰ *Em 10 segundos você recebe as regras!*`,
-
-        `✨🎊 *CHEGOU O(A) MAIS NOVO(A) INTEGRANTE!* 💃🔥\n\n@${participantName}, seja muito bem-vindo(a)!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nO clima aqui é de pura vibração positiva 24/7! 🌟💥\n\nVamos criar momentos inesquecíveis com muito estilo! 💬🍾\n\n⏰ *Regras chegando em breve!*`,
-
-        `🍾🎉 *BRINDE À NOVA CHEGADA!* 🥂✨\n\n*OLÁ* @${participantName}! Você acaba de entrar na melhor vibe!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAqui é festa constante, risadas garantidas e diversão sem fim! 🎊🔥\n\nSinta-se em casa e aproveite cada momento! 💃🎶\n\n⏰ *Aguarde as regras em 10 segundos!*`,
-
-        `💥🌟 *UAUUU! QUE CHEGADA!* 🎉💃\n\n@${participantName}, o grupo ganhou mais brilho com você!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nPreparado(a) para uma experiência única de diversão? 🚀✨\n\nAqui a energia é contagiante 24h por dia! 🕛🔥\n\n⏰ *Regras a caminho!*`,
-
-        `🎶🔥 *O GRUPO ACABA DE FICAR MAIS TOP!* 💃🎊\n\n*SEJA BEM-VINDO(A)* @${participantName}!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAqui você vai encontrar gente incrível e muita animação! 🌟💥\n\nVamos curtir, dançar e interagir sem parar! 💬🍾\n\n⏰ *Em 10 segundos envio as regras!*`,
-
-        `💃🎉 *MAIS UM(A) PARA AGITAR A FESTA!* 🔥✨\n\n@${participantName}, sua entrada já deixou tudo mais animado!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nPreparado(a) para viver momentos épicos? 🚀🎊\n\nAqui a diversão é garantida 24/7! 🕛💥\n\n⏰ *Aguarde as regras!*`,
-
-        `🌟💥 *EBAAA! CHEGOU MAIS UM(A)!* 🎉💃\n\n*BEM-VINDO(A)* @${participantName} ao grupo da alegria!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAqui você vai encontrar muita diversão e energia boa! ✨🔥\n\nVamos criar memórias incríveis juntos! 💬🍾\n\n⏰ *Regras em 10 segundos!*`,
-
-        `🔥🎊 *A FESTA FICOU COMPLETA AGORA!* 💃🌟\n\n@${participantName}, que entrada espetacular!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nPreparado(a) para curtir sem limites? 🚀✨\n\nAqui a vibe é sempre alta, 24h por dia! 🕛🔥\n\n⏰ *Aguarde as regras do grupo!*`,
-
-        `🎉💃 *CHEGOU QUEM FALTAVA!* ✨🔥\n\n*OLÁ* @${participantName}! Seja muito bem-vindo(a)!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAqui é o espaço perfeito para se divertir e fazer amigos! 🌟💥\n\nVamos agitar juntos com muita energia! 💬🍾\n\n⏰ *Em breve as regras!*`,
-
-        `💥🍾 *QUE ALEGRIA TER VOCÊ AQUI!* 🎉💃\n\n@${participantName}, o grupo estava esperando por você!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nPreparado(a) para momentos inesquecíveis? 🚀✨\n\nA diversão aqui não tem hora para acabar! 🕛🔥\n\n⏰ *Regras chegando em 10 segundos!*`,
-
-        `🌟🎶 *SHOW DE ENTRADA!* 💃🔥\n\n*BEM-VINDO(A)* @${participantName} ao melhor grupo!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAqui você vai encontrar muita alegria e interação! 🎊💥\n\nVamos curtir cada segundo com muito estilo! 💬✨\n\n⏰ *Aguarde 10 segundos para as regras!*`,
-
-        `🔥💃 *MAIS UM(A) ESTRELA NO GRUPO!* ⭐🎉\n\n@${participantName}, sua presença já iluminou tudo!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nPreparado(a) para muita diversão e risadas? 😂🔥\n\nAqui a energia é contagiante 24/7! 🕛✨\n\n⏰ *Regras a caminho!*`,
-
-        `🎊✨ *CHEGOU A HORA DE CELEBRAR!* 💃🔥\n\n*OLÁ* @${participantName}! Seja bem-vindo(a) à festa!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAqui é só alegria, música e muita conexão! 🌟💥\n\nVamos criar momentos incríveis juntos! 💬🍾\n\n⏰ *Em 10 segundos as regras!*`,
-
-        `💥🎉 *O GRUPO GANHOU MAIS PODER!* 🔥💃\n\n@${participantName}, que entrada sensacional!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nPreparado(a) para curtir sem parar? 🚀✨\n\nA diversão aqui é garantida 24h! 🕛🔥\n\n⏰ *Aguarde as regras!*`,
-
-        `🍾💃 *VIBRAÇÕES POSITIVAS CHEGANDO!* ✨🎊\n\n*BEM-VINDO(A)* @${participantName} ao grupo da alegria!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAqui você vai encontrar gente incrível e muita animação! 🌟💥\n\nVamos agitar e aproveitar cada momento! 💬🔥\n\n⏰ *Regras em 10 segundos!*`,
-
-        `🔥🌟 *ADRENALINA PURA CHEGOU!* 💃🎉\n\n@${participantName}, o grupo ficou ainda melhor com você!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nPreparado(a) para momentos épicos? 🚀✨\n\nAqui a diversão nunca para, 24/7! 🕛💥\n\n⏰ *Aguarde as regras!*`,
-
-        `🎉💥 *MAIS ENERGIA PARA O GRUPO!* 🔥💃\n\n*OLÁ* @${participantName}! Seja muito bem-vindo(a)!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAqui é o lugar perfeito para se divertir! 🎊✨\n\nVamos criar memórias inesquecíveis juntos! 💬🍾\n\n⏰ *Em breve as regras!*`,
-
-        `💃🎶 *A PISTA ESTÁ LOTADA AGORA!* 🔥🎉\n\n@${participantName}, que alegria ter você aqui!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nPreparado(a) para curtir muito? 🚀✨\n\nA diversão aqui é constante, 24h! 🕛🔥\n\n⏰ *Regras chegando em 10 segundos!*`,
-
-        `✨🔥 *MAIS UM(A) PARA BRILHAR!* 🌟💃\n\n*BEM-VINDO(A)* @${participantName} ao grupo mais top!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAqui você vai encontrar muita alegria! 🎊💥\n\nVamos agitar com muito estilo e energia! 💬🍾\n\n⏰ *Aguarde as regras!*`,
-
-        `🔥🎊 *CHEGOU MAIS UM(A) ANIMADO(A)!* 💃✨\n\n@${participantName}, sua entrada deixou tudo mais legal!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nPreparado(a) para viver experiências únicas? 🚀🔥\n\nAqui a vibe é sempre alta, 24/7! 🕛💥\n\n⏰ *Em 10 segundos as regras!*`,
-
-        `🎉💃 *O GRUPO ESTÁ EM FESTA!* 🔥🌟\n\n*OLÁ* @${participantName}! Que bom ter você conosco!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAqui é só alegria e diversão garantida! 🎊✨\n\nVamos curtir cada momento juntos! 💬🍾\n\n⏰ *Regras a caminho!*`,
-
-        `💥🍾 *SENSACIONAL! MAIS UM(A) MEMBRO!* 💃🔥\n\n@${participantName}, o grupo ganhou mais estilo!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nPreparado(a) para muita interação? 🚀✨\n\nA diversão aqui não tem limites, 24h! 🕛🔥\n\n⏰ *Aguarde as regras em 10 segundos!*`,
-
-        `🌟🎶 *CHEGOU QUEM ESTAVA FALTANDO!* 💃🎉\n\n*BEM-VINDO(A)* @${participantName} à melhor vibe!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAqui você vai encontrar muita energia boa! 🔥💥\n\nVamos criar momentos incríveis com muito estilo! 💬✨\n\n⏰ *Regras em breve!*`,
-
-        `🔥💃 *EXPLOSION OF JOY!* 🎊✨\n\n@${participantName}, sua chegada deixou tudo mais animado!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nPreparado(a) para curtir sem parar? 🚀🔥\n\nAqui a festa é constante, 24/7! 🕛💥\n\n⏰ *Aguarde 10 segundos para as regras!*`,
-
-        `🎉🍾 *MAIS ALEGRIA PARA O GRUPO!* 💃🌟\n\n*OLÁ* @${participantName}! Seja muito bem-vindo(a)!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAqui é o lugar perfeito para se divertir! 🎊✨\n\nVamos agitar e aproveitar juntos! 💬🔥\n\n⏰ *Regras a caminho!*`,
-
-        `💥💃 *O GRUPO ESTÁ MAIS POTENTE!* 🔥🎉\n\n@${participantName}, que entrada incrível!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nPreparado(a) para momentos inesquecíveis? 🚀✨\n\nA diversão aqui é garantida 24h! 🕛💥\n\n⏰ *Em 10 segundos as regras!*`,
-
-        `✨🎊 *CHEGOU A HORA DE COMEMORAR!* 💃🔥\n\n*BEM-VINDO(A)* @${participantName} ao grupo da festa!\n👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAqui você vai viver os melhores momentos! 🌟💥\n\nVamos curtir com muita energia e estilo! 💬🍾\n\n⏰ *Aguarde as regras do grupo!*`
-
+    // ✅ Array completo de mensagens de boas-vindas
+    const welcomeMessages = [
+      `🎉💃 *BEM-VINDO(A) AO GRUPO* 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\n@${participantName} ✨🎉\n\n Aqui é um espaço de interação e diversão 24 horas! 🕛🔥 Prepare seu meme, seu GIF e sua risada! 😎💥\n\nParticipe das conversas e aproveite bons momentos com a gente! 💃🎶🍾🍸\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎊🔥 *CHEGOU O(A) DONO(A) DA FESTA!* 💃🍾 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nPrepare-se para zoeira, desafios e histórias que ninguém acredita! 😎🔥\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💃✨ *A RAINHA OU O REI CHEGOU!* 👑🔥 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAqui só entra quem gosta de diversão, memes e risadas sem limites! 😆🍹\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎶💥 *CHEGOU COM ESTILO!* 💃🌟 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nSolte o GIF, prepare o emoji e venha causar impacto! 😎💫\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🍾🎊 *BOAS-VINDAS À FESTA MAIS DOIDA!* 💃🔥 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nCuidado: aqui as risadas são contagiosas e os memes, explosivos! 💥😂\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🌈💃 *SEJA MUITO BEM-VINDO(A)!* 🎉🔥 @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nPegue sua bebida, prepare o emoji e bora curtir a bagunça! 🍹😆\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎊🔥 *NOVO(A) INTEGRANTE NA ÁREA!* 💃✨ SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nVai rolar desafio de memes e risadas garantidas, pronto(a) para isso? 😏🔥\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💥🎉 *CHEGOU O(A) MAIS ESPERADO(A)!* 💃🌟 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nTraga seu GIF mais épico, sua risada mais alta e bora agitar! 😎🍸\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🔥🍾 *BEM-VINDO(A)* 💃🎊 @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAqui é só alegria, memes e histórias pra contar! 😆🎶\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💃🎶 *A ALEGRIA CHEGOU!* 💥✨ SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nPrepare seu GIF, emoji e risadas: a festa começou! 🎊🍹\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎉💫 *ENTRADA VIP DETECTADA!* 💃🍸 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nO tapete vermelho de memes e risadas está pronto, role aí! 😎🔥\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💃🔥 *CHEGOU O(A) DESTRUÍDOR(A) DE TÉDIO!* 🎊✨ SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nPrepare-se para aventuras, risadas e GIFs inesperados! 😏🍾\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎊🍾 *O GRUPO TÁ EM FESTA!* 💃🔥 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAqui só entra quem gosta de zoeira, memes e bons drinks imaginários! 🍹😂\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💫🔥 *CHEGADA ILUMINADA!* 💃🎶 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nLuz, câmera e muita diversão: seu palco está pronto! 🎉🌟\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🌈🎊 *CHEGANDO COM CHARME E ALEGRIA!* 💃🔥 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nEntre e espalhe boas vibes, memes e GIFs! 😎✨\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💥🎉 *A FESTA AGORA É COMPLETA!* 💃🔥 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nChegou quem faltava pra bagunçar e animar geral! 🎊😂\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🍸🎶 *CHEGOU O(A) NOVO(A) DONO(A) DO ROLE!* 💃🔥 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAgora sim a zoeira vai ter chefe! 😎💥\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎉🔥 *MAIS UM(A) PRA BRILHAR COM A GENTE!* 💃🌟 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nTraga suas histórias, risadas e GIFs explosivos! 😆🎊\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💫🎊 *SEJA MUITO BEM-VINDO(A) À BAGUNÇA!* 💃🔥 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAqui cada risada vale ouro e cada meme é tesouro! 😎💥\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎊💃 *NOVA ENERGIA NO GRUPO!* 💥🔥 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nChegou quem vai acender ainda mais essa festa! 🍹🎶😆\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎉💃 *CHEGOU O(A) ANIMADOR(A) DA GALERA!* 🔥🍾 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 \n\nPrepare-se para memes, GIFs e muita zoeira! 😎💥\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💥🎊 *A FESTA GANHOU MAIS UM(A)!* 💃🌈 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\n\nSolte seu emoji favorito e venha causar! 😆✨\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🔥💃 *CHEGOU O(A) MESTRE DA ZOEIRA!* 🎉🍹 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\n\nGIFs, memes e risadas ilimitadas te esperam! 😎🎊\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎊✨ *CHEGOU O(A) TURBINADOR(A) DE ALEGRIA!* 💃🔥 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\n\nEntre e solte o riso, a festa começou! 😆💥\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💃🌟 *A DIVERSÃO CHEGOU!* 🎉🔥 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💫🎶 *Dﾑ* *NIGӇԵ* 🍾\n\nPrepare seu GIF mais épico e venha arrasar! 😎🎊\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🍾💥 *O(A) NOVO(A) REI(RAINHA) DA ZOEIRA CHEGOU!* 💃🎉 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\n\nAqui só entra quem ama memes e risadas! 😆✨\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎶🎊 *CHEGOU QUEM VAI AGITAR TUDO!* 💃🔥 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\n\nGIFs, desafios e histórias inacreditáveis te esperam! 😎💫\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💫💃 *CHEGOU O(A) RESPONSÁVEL PELA ALEGRIA!* 🎉🔥 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\n\nPegue seu emoji e entre na festa! 😆🍾\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎊💥 *A FESTA FICOU COMPLETA!* 💃🎶 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\n\nAqui o meme nunca acaba e a risada é garantida! 😎🎉\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🔥🎉 *CHEGOU O(A) FAZEDOR(A) DE RISADAS!* 💃💫 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\n\nPrepare seu GIF, emoji e venha brilhar! 😆🎊\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🍹💃 *NOVO(A) MEME MASTER NA ÁREA!* 🎉🔥 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\n\nA bagunça só começa agora! 😎💥\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎊✨ *CHEGOU O(A) NOVO(A) CHEFE DA ZOEIRA!* 💃🔥 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\n\nEntre e prepare-se para aventuras e GIFs épicos! 😆🎉\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💥🎶 *O(A) MAIS ANIMADO(A) CHEGOU!* 💃✨ SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\n\nPrepare seu meme e venha causar impacto! 😎🎊\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎉💃 *CHEGOU QUEM VAI AGITAR TUDO!* 💥🌈 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\n\nAqui a diversão é garantida! 😆✨\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💫🔥 *CHEGOU O(A) ILUMINADOR(A) DE RISADAS!* 💃🎊 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\n\nGIFs e histórias épicas estão prontos para você! 😎🎉\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎶💃 *O(A) NOVO(A) DONO(A) DA FESTA!* 💥🌟 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\n\nPrepare-se para risadas e memes sem limites! 😆🎊\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎊✨ *CHEGOU O(A) ANIMADOR(A) DE PRIMEIRA!* 💃🔥 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\n\nEntre e faça sua entrada triunfal com GIFs e emojis! 😎💥\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💥🎉 *O(A) MAIS ESPERADO(A) ESTÁ AQUI!* 💃🌈 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\n\nA festa só fica completa com você! 😆✨\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🔥💫 *NOVO(A) MEME LORD CHEGOU!* 💃🎊 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\n\nPrepare seu emoji e entre na brincadeira! 😎🎉\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎉💃 *A ALEGRIA ESTÁ COMPLETA!* 💥🌟 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\n\nTraga sua energia e venha agitar geral! 😆🎊\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎊💥 *ATENÇÃO, CHEGOU O(A) RESPONSÁVEL PELA BAGUNÇA!* 💃🍸 Bem-vindo(a) @${participantName} ao grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\nPrepare os memes e GIFs: agora a festa tá completa! 😎🍹\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💃✨ *O(A) NOVO(A) LENDÁRIO(A) CHEGOU!* 🌟🍾 Olá @${participantName}, entre no grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\nAqui cada risada vale ouro, cada meme é uma explosão! 😂🔥\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎉💫 *ALERTA DE DIVERSÃO!* 💃🔥 Bem-vindo(a) @${participantName} ao grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\nSegura o GIF, libera o emoji e venha causar impacto! 😎🎊\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💥🎶 *CHEGOU O(A) CHEFÃO/CHIEF DA ZOEIRA!* 💃🍹 @${participantName}, entre no grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\nAqui a regra é: rir até não aguentar mais! 😆🍾\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎊🌟 *BOAS-VINDAS AO(A) DETONADOR(A) DE MEMES!* 💃🎶 @${participantName}, chegou no grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\nTraga seu GIF mais épico, a zoeira tá garantida! 😎🎉\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💫🍾 *CHEGOU QUEM VAI AGITAR TUDO!* 💃🎊 @${participantName}, seja muito bem-vindo(a) ao grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\nEntre e espalhe boas vibes, memes e GIFs! 😆🍹\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎶🔥 *OLHA QUEM CHEGOU!* 💃💫 @${participantName}, seja muito bem-vindo(a) ao grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\nPrepare-se: risadas e zoeira sem limites! 😎💥\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💥💃 *CHEGOU O(A) NOVO(A) FENÔMENO!* 🎊🍹 @${participantName}, seja muito bem-vindo(a) ao grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\nGIFs, memes e histórias que ninguém acredita! 😆🎉\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎉🌈 *SE PREPARE!* 💃💫 *O(A) NOVO(A) ALIADO(A) DA ZOEIRA CHEGOU!* @${participantName} 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\nEntre com GIF, emoji e muita energia! 😎🎊\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💫🎶 *CHEGOU O(A) SUPREMO(A) DA FESTA!* 💃💥 @${participantName} seja bem-vindo(a) ao grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\nA diversão começa agora: memes e risadas liberadas! 😆🍹\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎊💥 *ATENÇÃO, CHEGOU O(A) NOVO(A) DOMINADOR(A) DE RISADAS!* 💃🎶 @${participantName}, seja muito bem-vindo(a) ao grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\nEntre e prepare seu GIF mais engraçado! 😎🎉\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💃🎉 *OLHA QUEM CHEGOU COM TUDO!* 💥🍾 @${participantName}, seja muito bem-vindo(a) ao grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\nAqui a regra é clara: rir até não aguentar mais! 😆🎊\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎶💫 *SEJA BEM-VINDO(A)* 💃🔥 @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\nPrepare o GIF e venha brilhar na festa! 😎🎊\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🔥🎉 *CHEGOU QUEM VAI AGITAR A GALERA!* 💃✨ @${participantName}, seja muito bem-vindo(a) ao grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\nTraga seu melhor emoji e GIF para arrasar! 😆🎊\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎊💫 *BOAS-VINDAS AO(A) NOVO(A) IMPACTANTE!* 💃💥 @${participantName}, seja muito bem-vindo(a) ao grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\nAqui só entra quem sabe causar com memes e risadas! 😎🎉\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💥🎶 *OLHA QUEM CHEGOU PRA DOMINAR!* 💃🍾 @${participantName}, seja muito bem-vindo(a) ao grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\nGIFs, desafios e risadas garantidas! 😆✨\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎉💃 *O(A) NOVO(A) FAZEDOR(A) DE RISADAS CHEGOU!* 💥🍹 @${participantName}, seja muito bem-vindo(a) ao grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\nEntre e prepare sua entrada triunfal com GIFs! 😎🎊\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💫🎊 *CHEGOU O(A) NOVO(A) LÍDER DA ZOEIRA!* 💃🔥 @${participantName}, seja muito bem-vindo(a) ao grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\nPrepare-se: memes explosivos e risadas garantidas! 😆🎉\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎶💥 *SE PREPAREM, CHEGOU O(A) NOVO(A) DESTEMIDO(A)!* 💃✨ @${participantName}, seja muito bem-vindo(a) ao grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\nEntre com GIFs, emojis e muita energia! 😎🎊\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎊💫 *A FESTA AGORA ESTÁ COMPLETA!* 💃🔥 @${participantName}, seja muito bem-vindo(a) ao grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\nPrepare seu GIF e venha brilhar com a galera! 😆🎉\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎉💃 *BOAS-VINDAS*, @${participantName}! Chegou a estrela que vai animar o grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 Prepare seus GIFs e emojis para arrasar! 🎶✨\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💥🎊 *BOAS-VINDAS*, @${participantName}! Agora sim o grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 vai ferver! 😂🍸 Traga sua energia, memes e risadas! 🎉🔥\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎶🌟 *BOAS-VINDAS*, @${participantName}! Entrou quem vai dominar o chat do 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 Solte seu GIF mais épico! 🍾🎊\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💫💃 *BOAS-VINDAS*, @${participantName}! Chegou o(a) novo(a) rei(rainha) da zoeira no 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 Prepare o melhor meme! 🎶✨\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎊💥 *BOAS-VINDAS*, @${participantName}! Agora o grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 tem mais um(a) destruidor(a) de tédio! 😎🍸 GIFs liberados! 🎉💫\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🔥💫 *BOAS-VINDAS*, @${participantName}! Chegou quem vai agitar o 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 com risadas e memes! 😂🍹 Entre e cause impacto! 🎶✨\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎉💃 *BOAS-VINDAS*, @${participantName}! Prepare-se: agora o 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 ficou ainda mais épico! 😆🍾 Traga seus GIFs e emojis favoritos! 🎊🔥\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💫🎶 *BOAS-VINDAS*, @${participantName}! Entrou quem vai dominar o humor no 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 Entre e espalhe risadas! 💃✨\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎊🍾 *BOAS-VINDAS*, @${participantName}! O grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 ganhou mais uma lenda da zoeira! 😎🎉 Prepare seu GIF mais épico! 💫🔥\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💥🎶 *BOAS-VINDAS*, @${participantName}! Chegou quem vai incendiar o 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 com memes e GIFs! 😂🍹 Entre e divirta-se! 🎊✨\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💃🎉 *BOAS-VINDAS*, @${participantName}! Agora a diversão do 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 ficou completa! 😎🍸 Traga seu GIF mais insano! 🎶💫\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎶🔥 *BOAS-VINDAS*, @${participantName}! Chegou quem vai fazer o 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 ferver de risadas! 😂🍾 Solte os emojis e GIFs! 🎉💫\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🥳💥 *BOAS-VINDAS*, @${participantName}! O(a) novo(a) mestre da zoeira chegou no 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸  Prepare-se para risadas épicas! 🎊✨\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎉🍸 *BOAS-VINDAS*, @${participantName}! Agora o 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 ganhou mais uma estrela da diversão! 😎💫 GIFs e memes liberados! 🎶🔥\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💫🎊 *BOAS-VINDAS*, @${participantName}! Entrou no 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 quem vai arrasar com GIFs e risadas! 😂🍾 Entre e cause impacto! 🎉✨\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎶💥 *BOAS-VINDAS*, @${participantName}! Chegou o(a) novo(a) animador(a) do 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸  Prepare seus emojis e memes! 🎊💫\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💃🎉 *BOAS-VINDAS*, @${participantName}! O grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 *acabou de ganhar um(a) destruidor(a) de tédio!* 😂🍸 *Entre e brilhe!* 🎶✨\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `🎊💫 *BOAS-VINDAS*, @${participantName}! Chegou quem vai dominar o 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 com memes e GIFs épicos! 😆🍹 Entre e cause! 🎉🔥\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+      `💥🎶 *BOAS-VINDAS*, @${participantName}! Agora o 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 está completo com sua presença! 😎🍾 GIFs, memes e diversão liberados! 🎊✨\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
     ];
 
-        const selectedMessage = welcomeMessages[Math.floor(Math.random() * welcomeMessages.length)];
+    // ✅ Seleção aleatória da mensagem
+    const selectedMessage =
+      welcomeMessages[Math.floor(Math.random() * welcomeMessages.length)];
 
-        // Enviando mensagem de boas-vindas
-        if (profilePictureUrl) {
-            try {
-                const res = await axios.get(profilePictureUrl, { 
-                    responseType: 'arraybuffer',
-                    timeout: 10000 // timeout de 10 segundos
-                });
-                const buffer = Buffer.from(res.data, 'binary');
-                await sendImageWithThumbnail(socket, groupId, buffer, selectedMessage, [participant]);
-            } catch (err) {
-                console.error('⚠️ Erro ao baixar imagem, enviando mensagem de texto:', err.message);
-                await socket.sendMessage(groupId, { text: selectedMessage, mentions: [participant] });
-            }
+    // Enviando mensagem de boas-vindas com imagem ou texto
+    if (profilePictureUrl) {
+      try {
+        const res = await axios.get(profilePictureUrl, {
+          responseType: "arraybuffer",
+          timeout: 10000,
+          maxContentLength: 5 * 1024 * 1024, // Limite de 5MB
+        });
+
+        const buffer = Buffer.from(res.data, "binary");
+
+        // Validar tamanho do buffer
+        if (buffer.length > 0) {
+          await sendImageWithThumbnail(
+            socket,
+            groupId,
+            buffer,
+            selectedMessage,
+            [participant]
+          );
         } else {
-            await socket.sendMessage(groupId, { text: selectedMessage, mentions: [participant] });
+          throw new Error("Buffer vazio");
         }
-
-        console.log('✅ Boas-vindas enviadas com sucesso');
-
-        // Programar envio das regras após 10 segundos
-        enviarRegrasAposDelay(socket, groupId, participant);
-        console.log('⏰ Regras agendadas para envio em 10 segundos');
-
-        // Programar envio do menu de entretenimento após 20 segundos
-        enviarMenuEntretenimento(socket, groupId, participant);
-        console.log('⏰ Menu de entretenimento agendado para envio em 20 segundos');
-
-    } catch (error) {
-        console.error('❌ Erro ao enviar boas-vindas:', error.message, error.stack);
-        
-        // Fallback: tentar enviar pelo menos uma mensagem básica
-        try {
-            await socket.sendMessage(groupId, {
-                text: `Bem-vindo(a) @${participant.split('@')[0]} ao grupo! 🎉`,
-                mentions: [participant]
-            });
-        } catch (fallbackError) {
-            console.error('❌ Erro crítico no fallback:', fallbackError.message);
-        }
+      } catch (err) {
+        console.error(
+          "⚠️ Erro ao baixar/processar imagem, enviando mensagem de texto:",
+          err.message
+        );
+        await socket.sendMessage(groupId, {
+          text: selectedMessage,
+          mentions: [participant],
+        });
+      }
+    } else {
+      await socket.sendMessage(groupId, {
+        text: selectedMessage,
+        mentions: [participant],
+      });
     }
+
+    console.log("✅ Boas-vindas enviadas com sucesso");
+
+    // Programar envio das regras após 10 segundos
+    enviarRegrasAposDelay(socket, groupId, participant);
+    console.log("⏰ Regras agendadas para envio em 10 segundos");
+
+    // Programar envio do menu de entretenimento após 1 minuto
+    enviarMenuEntretenimento(socket, groupId, participant);
+    console.log(
+      "⏰ Menu de entretenimento agendado para envio em 1 minuto (60 segundos)"
+    );
+  } catch (error) {
+    console.error("❌ Erro ao enviar boas-vindas:", error);
+
+    // Fallback: tentar enviar pelo menos uma mensagem básica
+    try {
+      await socket.sendMessage(groupId, {
+        text: `Bem-vindo(a) @${participant.split("@")[0]} ao grupo! 🎉`,
+        mentions: [participant],
+      });
+    } catch (fallbackError) {
+      console.error("❌ Erro crítico no fallback:", fallbackError);
+    }
+  }
 };

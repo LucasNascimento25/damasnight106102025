@@ -8,9 +8,9 @@ import pino from 'pino';
 import { handleMessages, updateGroupOnJoin } from './bot/codigos/messageHandler.js';
 import { configurarBoasVindas } from './bot/codigos/boasVindas.js';
 import { configurarDespedida } from './bot/codigos/despedidaMembro.js';
-import { isBlacklistedRealtime } from './bot/codigos/blacklistFunctions.js';
+import { isBlacklistedRealtime, scanAndRemoveBlacklisted, onUserJoined } from './bot/codigos/blacklistFunctions.js';
 import { verificarBlacklistAgora } from './bot/codigos/blacklistChecker.js';
-import { handleGroupParticipantsUpdate, setupClient } from './bot/codigos/avisoadm.js';
+import { handleGroupParticipantsUpdate as handleAdminNotifications, setupClient } from './bot/codigos/avisoadm.js';
 import configurarBloqueio from './bot/codigos/bloquearUsuarios.js';
 import pool from './db.js';
 
@@ -79,12 +79,60 @@ async function connectToWhatsApp() {
 
                 // Inicializa bloqueio de usuários privados
                 configurarBloqueio(sock);
+
+                // 🔍 VARREDURA AUTOMÁTICA EM TODOS OS GRUPOS AO CONECTAR
+                console.log('🔍 ========= INICIANDO VARREDURA AUTOMÁTICA =========\n');
+                
+                try {
+                    // Busca todos os grupos
+                    const groups = await sock.groupFetchAllParticipating();
+                    const groupIds = Object.keys(groups);
+                    
+                    console.log(`📋 Total de grupos encontrados: ${groupIds.length}\n`);
+                    
+                    let totalRemovidos = 0;
+                    
+                    // Varre cada grupo
+                    for (let i = 0; i < groupIds.length; i++) {
+                        const groupId = groupIds[i];
+                        const groupName = groups[groupId].subject;
+                        
+                        console.log(`[${i + 1}/${groupIds.length}] 🔍 Varrendo: ${groupName}`);
+                        
+                        try {
+                            const resultado = await scanAndRemoveBlacklisted(groupId, sock);
+                            console.log(`   ${resultado}`);
+                            
+                            // Conta quantos foram removidos
+                            const match = resultado.match(/(\d+) usuário/);
+                            if (match) {
+                                totalRemovidos += parseInt(match[1]);
+                            }
+                            
+                        } catch (err) {
+                            console.error(`   ❌ Erro ao varrer ${groupName}:`, err.message);
+                        }
+                        
+                        // Delay de 2 segundos entre grupos
+                        if (i < groupIds.length - 1) {
+                            await new Promise(resolve => setTimeout(resolve, 2000));
+                        }
+                    }
+                    
+                    console.log('\n✅ ========= VARREDURA COMPLETA =========');
+                    console.log(`🚨 Total removido: ${totalRemovidos} usuário(s) da blacklist`);
+                    console.log('==========================================\n');
+                    
+                } catch (err) {
+                    console.error('❌ Erro na varredura automática:', err);
+                }
             }
 
             if (connection === "close") {
                 isConnecting = false;
                 const statusCode = lastDisconnect?.error?.output?.statusCode;
 
+                console.log("==================================================");
                 console.log("⚠️  Bot desconectado");
 
                 const shouldReconnect = statusCode !== DisconnectReason.loggedOut &&
@@ -105,37 +153,103 @@ async function connectToWhatsApp() {
             }
         });
 
-        // Eventos de participantes do grupo (avisos + boas-vindas/despedida/blacklist)
+        // 🚨 EVENTO DE PARTICIPANTES DO GRUPO (BLACKLIST + NOTIFICAÇÕES + DESPEDIDA)
         sock.ev.on('group-participants.update', async (update) => {
             try {
                 const groupId = update.id;
+                const action = update.action;
 
-                // 1️⃣ Notificações de promoção/demissão/entrada/saída
-                await handleGroupParticipantsUpdate(sock, update, sock.user);
+                console.log(`\n👥 ========= EVENTO DE GRUPO =========`);
+                console.log(`📱 Grupo: ${groupId}`);
+                console.log(`🎬 Ação: "${action}" (tipo: ${typeof action})`);
+                console.log(`👤 Participantes:`, update.participants);
+                console.log(`📋 Update completo:`, JSON.stringify(update, null, 2));
+                console.log(`=====================================\n`);
 
-                for (const participant of update.participants) {
-                    const userPhone = participant.split('@')[0];
+                // 1️⃣ Notificações de promoção/demissão (avisoadm.js)
+                await handleAdminNotifications(sock, update, sock.user);
 
-                    if (update.action === 'add') {
-                        const blacklisted = await isBlacklistedRealtime(participant);
-                        if (blacklisted) {
-                            await sock.groupParticipantsUpdate(groupId, [participant], 'remove');
-                            console.log(`🚨 Usuário ${userPhone} removido (blacklist) - ${groupId}`);
-                        } else {
+                // 2️⃣ PROCESSAR ADIÇÕES (BLACKLIST + BOAS-VINDAS)
+                if (action === 'add') {
+                    for (const participant of update.participants) {
+                        const userPhone = participant.split('@')[0];
+
+                        console.log(`\n🔍 ========= VERIFICAÇÃO DE BLACKLIST =========`);
+                        console.log(`👤 Verificando: ${participant}`);
+                        console.log(`📱 Telefone: ${userPhone}`);
+                        
+                        // 🔧 Pequeno delay para garantir que o usuário foi processado
+                        await new Promise(resolve => setTimeout(resolve, 1500));
+                        
+                        // 🔥 RESOLVE LID PARA NÚMERO REAL
+                        let realNumber = participant;
+                        if (participant.includes('@lid')) {
+                            try {
+                                console.log('🔍 LID detectado! Buscando número real...');
+                                const metadata = await sock.groupMetadata(groupId);
+                                const participantData = metadata.participants.find(p => p.id === participant);
+                                
+                                if (participantData?.phoneNumber) {
+                                    realNumber = participantData.phoneNumber;
+                                    console.log(`✅ Número real encontrado: ${realNumber}`);
+                                } else {
+                                    console.log('⚠️ phoneNumber não encontrado no metadata');
+                                }
+                            } catch (err) {
+                                console.log('⚠️ Erro ao resolver LID:', err.message);
+                            }
+                        }
+                        
+                        // 🔥 CHAMA A FUNÇÃO onUserJoined COM O NÚMERO REAL E ID ORIGINAL
+                        await onUserJoined(realNumber, groupId, sock, participant);
+                        
+                        // ✅ Se passou pela verificação, envia boas-vindas (usa o ID original)
+                        const isBlocked = await isBlacklistedRealtime(realNumber);
+                        if (!isBlocked) {
+                            console.log(`✅ ${userPhone} não está na blacklist - enviando boas-vindas`);
                             await configurarBoasVindas(sock, groupId, participant);
                         }
-                    } else if (update.action === 'remove') {
-                        await configurarDespedida(sock, groupId, participant);
+                        
+                        console.log(`==============================================\n`);
                     }
                 }
 
-                // 🏷️ Auto-atualizar grupo para AutoTag
-                if (['add', 'remove', 'promote', 'demote'].includes(update.action)) {
+                // 3️⃣ PROCESSAR SAÍDAS E REMOÇÕES (DESPEDIDA)
+                if (action === 'remove' || action === 'leave') {
+                    console.log(`\n👋 ========= PROCESSANDO SAÍDA/REMOÇÃO =========`);
+                    console.log(`🎬 Ação detectada: "${action}"`);
+                    console.log(`👮 Author (quem executou): ${update.author || 'N/A'}`);
+                    console.log(`👥 Total de participantes afetados: ${update.participants.length}`);
+                    
+                    for (const participant of update.participants) {
+                        const userPhone = participant.split('@')[0];
+                        
+                        console.log(`\n📤 Processando despedida para: ${participant}`);
+                        console.log(`📱 Telefone: ${userPhone}`);
+                        console.log(`🔄 Chamando configurarDespedida com action="${action}" e author="${update.author}"`);
+                        
+                        try {
+                            // 🔥 PASSA O AUTHOR PARA VERIFICAR SE FOI SAÍDA VOLUNTÁRIA
+                            await configurarDespedida(sock, groupId, participant, action, update.author);
+                            console.log(`✅ Despedida processada com sucesso para ${userPhone}`);
+                        } catch (err) {
+                            console.error(`❌ Erro ao processar despedida de ${userPhone}:`, err.message);
+                            console.error(err.stack);
+                        }
+                    }
+                    
+                    console.log(`==============================================\n`);
+                }
+
+                // 4️⃣ Auto-atualizar grupo para AutoTag quando houver mudanças
+                if (['add', 'remove', 'leave', 'promote', 'demote'].includes(action)) {
                     await updateGroupOnJoin(sock, groupId);
+                    console.log(`🏷️ Grupo ${groupId} atualizado para AutoTag`);
                 }
 
             } catch (error) {
                 console.error('❌ Erro no evento de participantes:', error);
+                console.error('Stack completo:', error.stack);
             }
         });
 
