@@ -1,4 +1,4 @@
-// messageHandler.js - ATUALIZADO COM SUPORTE A IMAGENS, VÍDEOS E STICKERS
+// messageHandler.js - ATUALIZADO COM SUPORTE A IMAGENS, VÍDEOS, STICKERS E SIGNOS
 import { handleBlacklistCommands } from './blacklistHandler.js';
 import { handleMusicaCommands } from './musicaHandler.js';
 import { handleMessage as handleAdvertencias } from './advertenciaGrupos.js';
@@ -14,7 +14,8 @@ import { handleHQs } from './hqseroticos.js';
 import menuDamasHandler from './menuDamasHandler.js';
 import { onUserJoined, scanAndRemoveBlacklisted } from './blacklistFunctions.js';
 import { handleOwnerMenu } from './menuOwner.js';
-import { handleStickerCommand } from './stickerAdvanced.js'; // 🆕 IMPORT DO STICKER HANDLER AVANÇADO
+import { handleStickerCommand } from './stickerAdvanced.js';
+import { handleSignos } from './signosHandler.js'; // 🆕 IMPORT DO HANDLER DE SIGNOS
 
 // 🏷️ Instância do AutoTag
 const autoTag = new AutoTagHandler();
@@ -111,7 +112,32 @@ export async function handleMessages(sock, message) {
             }
         }
 
-        // 🆕 PRIORIDADE 6: COMANDOS DE CONTOS (#contos, #ler, #aleatorio, etc)
+        // 🆕 🔮 PRIORIDADE 6: COMANDOS DE SIGNOS E TARÔ (#damastaro, #atualizarsignos, !signos, etc)
+        if (!handled) {
+            const lowerContent = content.toLowerCase().trim();
+            
+            // Comandos de signos (todos os que começam com ! ou # relacionados a signos)
+            const isSignoCommand = lowerContent.startsWith('#damastaro') ||
+                                  lowerContent.startsWith('#atualizarsignos') ||
+                                  lowerContent.startsWith('!listasignos') ||
+                                  lowerContent.startsWith('!listarsignos') ||
+                                  lowerContent.startsWith('!mysignos') ||
+                                  lowerContent.startsWith('!signos') ||
+                                  lowerContent.startsWith('!signo ') ||
+                                  lowerContent.startsWith('!signoaleatorio') ||
+                                  lowerContent.startsWith('!signo aleatorio') ||
+                                  lowerContent.startsWith('!horoscopo') ||
+                                  lowerContent.startsWith('!horoscopocompleto') ||
+                                  lowerContent.startsWith('!atualizarhoroscopo') ||
+                                  lowerContent.startsWith('!ajudahoroscopo');
+
+            if (isSignoCommand) {
+                handled = await handleSignos(sock, message);
+                console.log(`🔮 Comando de signos processado: ${lowerContent.split(' ')[0]}`);
+            }
+        }
+
+        // 🆕 PRIORIDADE 7: COMANDOS DE CONTOS (#contos, #ler, #aleatorio, etc)
         if (!handled) {
             const lowerContent = content.toLowerCase().trim();
             const isContoCommand = lowerContent.startsWith('#contos') ||
@@ -127,7 +153,7 @@ export async function handleMessages(sock, message) {
             }
         }
 
-        // 🆕 PRIORIDADE 7: COMANDOS DE HQS (#hqs, #hq, #pag, etc)
+        // 🆕 PRIORIDADE 8: COMANDOS DE HQS (#hqs, #hq, #pag, etc)
         if (!handled) {
             const lowerContent = content.toLowerCase().trim();
             const isHQCommand = lowerContent.startsWith('#hqs') ||
@@ -148,7 +174,7 @@ export async function handleMessages(sock, message) {
             }
         }
 
-        // 🆕 PRIORIDADE 8: MENU DAMAS (#menudamas)
+        // 🆕 PRIORIDADE 9: MENU DAMAS (#menudamas)
         if (!handled) {
             const lowerContent = content.toLowerCase().trim();
             
@@ -208,7 +234,7 @@ export async function handleMessages(sock, message) {
             }
         }
 
-        // 🔹 Comando de horóscopo (#horoscopo, #signos)
+        // 🔹 Comando de horóscopo ANTIGO (#horoscopo, #signos) - MANTIDO PARA COMPATIBILIDADE
         if (!handled) {
             const lowerContent = content.toLowerCase();
             
