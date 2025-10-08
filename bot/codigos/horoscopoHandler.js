@@ -140,15 +140,14 @@ async function buscarHoroscopoPortugues(signo, periodo) {
         
         if (response.data && response.data.previsao) {
             const emoji = signosEmoji[signosMap[signo.toLowerCase()]];
-            const dataBrasil = getDataBrasil(periodo); // CORRIGIDO: passa o período
+            const dataBrasil = getDataBrasil(periodo);
             
             return {
                 sucesso: true,
-                mensagem: `👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\n\n` +
-                    `${emoji} *HORÓSCOPO - ${signo.toUpperCase()}* ${emoji}\n\n` +
+                mensagem: `${emoji} *HORÓSCOPO - ${signo.toUpperCase()}* ${emoji}\n\n` +
                     `📅 *Data:* ${dataBrasil}\n\n` +
                     `🔮 *Previsão:*\n${response.data.previsao}\n\n` +
-                    `_Horóscopo do Dia_`
+                    `_© Damas da Night_`
             };
         }
     } catch (error) {
@@ -202,15 +201,14 @@ export async function buscarHoroscopo(signo, periodo = 'today') {
                 
                 // Traduz a previsão para português
                 const previsaoTraduzida = await traduzirTexto(data.horoscope_data);
-                const dataBrasil = getDataBrasil(periodo); // CORRIGIDO: passa o período
+                const dataBrasil = getDataBrasil(periodo);
                 
                 return {
                     sucesso: true,
-                    mensagem: `👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\n\n` +
-                        `${emoji} *HORÓSCOPO - ${signo.toUpperCase()}* ${emoji}\n\n` +
+                    mensagem: `${emoji} *HORÓSCOPO - ${signo.toUpperCase()}* ${emoji}\n\n` +
                         `📅 *Data:* ${dataBrasil}\n\n` +
                         `🔮 *Previsão:*\n${previsaoTraduzida}\n\n` +
-                        `_Horóscopo do Dia_`
+                        `_© Damas da Night_`
                 };
             }
         } catch (erro1) {
@@ -233,10 +231,9 @@ export async function buscarHoroscopo(signo, periodo = 'today') {
             const compatibilidadeTraduzida = data.compatibility ? await traduzirTexto(data.compatibility) : null;
             const humorTraduzido = data.mood ? (traducoes.mood[data.mood] || await traduzirTexto(data.mood)) : null;
             const corTraduzida = data.color ? (traducoes.color[data.color] || await traduzirTexto(data.color)) : null;
-            const dataBrasil = getDataBrasil(periodo); // CORRIGIDO: passa o período
+            const dataBrasil = getDataBrasil(periodo);
             
-            let mensagem = `👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\n\n` +
-                `${emoji} *HORÓSCOPO - ${signo.toUpperCase()}* ${emoji}\n\n` +
+            let mensagem = `${emoji} *HORÓSCOPO - ${signo.toUpperCase()}* ${emoji}\n\n` +
                 `📅 *Data:* ${dataBrasil}\n\n` +
                 `🔮 *Previsão:*\n${descricaoTraduzida}\n\n`;
             
@@ -255,6 +252,8 @@ export async function buscarHoroscopo(signo, periodo = 'today') {
             if (data.lucky_time) {
                 mensagem += `⏰ *Horário de sorte:* ${data.lucky_time}\n`;
             }
+            
+            mensagem += `\n_© Damas da Night_`;
             
             return {
                 sucesso: true,
@@ -300,7 +299,6 @@ export async function handleHoroscopoCommand(sock, message, args) {
     // Envia mensagem de carregamento COM REPLY
     await sock.sendMessage(chatId, {
         text: `@${senderId.split('@')[0]}\n\n` +
-              '👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸\n\n' +
               '🔮 *Consultando os astros...*\n⏳ Aguarde um momento...',
         mentions: [senderId],
         contextInfo: {

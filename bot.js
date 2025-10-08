@@ -11,7 +11,6 @@ import { configurarDespedida } from './bot/codigos/despedidaMembro.js';
 import { isBlacklistedRealtime, scanAndRemoveBlacklisted, onUserJoined } from './bot/codigos/blacklistFunctions.js';
 import { verificarBlacklistAgora } from './bot/codigos/blacklistChecker.js';
 import { handleGroupParticipantsUpdate as handleAdminNotifications, setupClient } from './bot/codigos/avisoadm.js';
-import configurarBloqueio from './bot/codigos/bloquearUsuarios.js';
 import pool from './db.js';
 
 const logger = pino({ level: 'fatal', enabled: false });
@@ -76,9 +75,6 @@ async function connectToWhatsApp() {
                 isConnecting = false;
 
                 if (!fs.existsSync('./downloads')) fs.mkdirSync('./downloads', { recursive: true });
-
-                // Inicializa bloqueio de usuários privados
-                configurarBloqueio(sock);
 
                 // 🔍 VARREDURA AUTOMÁTICA EM TODOS OS GRUPOS AO CONECTAR
                 console.log('🔍 ========= INICIANDO VARREDURA AUTOMÁTICA =========\n');

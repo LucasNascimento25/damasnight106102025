@@ -1,4 +1,4 @@
-// contosHandler.js - VERSÃO SIMPLIFICADA (SEM COMANDOS DUPLICADOS)
+// contosHandler.js - VERSÃO CORRIGIDA COM FORMATAÇÃO MELHORADA
 import fetch from 'node-fetch';
 import axios from 'axios';
 import Jimp from 'jimp';
@@ -18,7 +18,6 @@ let ultimaAtualizacao = null;
 async function gerarThumbnail(buffer, size = 256) {
     try {
         const image = await Jimp.read(buffer);
-        // Redimensiona mantendo a proporção original (não força quadrado)
         image.scaleToFit(size, size);
         return await image.getBufferAsync(Jimp.MIME_JPEG);
     } catch (err) {
@@ -34,7 +33,6 @@ async function baixarImagemComJimp(url) {
     try {
         console.log(`🖼️ Baixando imagem: ${url}`);
         
-        // Baixa a imagem
         const response = await axios.get(url, {
             responseType: 'arraybuffer',
             timeout: 10000,
@@ -49,35 +47,29 @@ async function baixarImagemComJimp(url) {
         const imageBuffer = Buffer.from(response.data);
         console.log(`📦 Buffer baixado: ${imageBuffer.length} bytes`);
 
-        // Valida tamanho mínimo
         if (imageBuffer.length < 5000) {
             console.log(`⚠️ Imagem muito pequena (${imageBuffer.length} bytes)`);
             return null;
         }
 
-        // Processa com Jimp
         const image = await Jimp.read(imageBuffer);
         console.log(`📐 Dimensões originais: ${image.getWidth()}x${image.getHeight()}`);
         
-        // Limita tamanho máximo mantendo proporção
         const maxWidth = 1280;
         const maxHeight = 720;
         
         if (image.getWidth() > maxWidth || image.getHeight() > maxHeight) {
             console.log(`🔧 Redimensionando...`);
-            // Usa scaleToFit para reduzir mantendo proporção exata
             image.scaleToFit(maxWidth, maxHeight);
             console.log(`✅ Nova dimensão: ${image.getWidth()}x${image.getHeight()}`);
         }
 
-        // Converte para JPEG de alta qualidade
         const processedBuffer = await image
             .quality(90)
             .getBufferAsync(Jimp.MIME_JPEG);
 
         console.log(`✅ Imagem processada: ${processedBuffer.length} bytes`);
         
-        // Valida tamanho máximo (5MB)
         if (processedBuffer.length > 5 * 1024 * 1024) {
             console.log(`⚠️ Imagem muito grande, reduzindo qualidade...`);
             return await image.quality(75).getBufferAsync(Jimp.MIME_JPEG);
@@ -117,6 +109,81 @@ async function carregarContos() {
 }
 
 /**
+ * Formata o texto adicionando espaços entre parágrafos - VERSÃO AVANÇADA
+ */
+function formatarTexto(texto) {
+    // Valida se é uma string
+    if (!texto || typeof texto !== 'string') {
+        console.warn('⚠️ formatarTexto recebeu valor inválido:', typeof texto);
+        return '';
+    }
+    
+    console.log('🔧 Formatando texto... Tamanho original:', texto.length);
+    console.log('🔍 Primeiros 100 caracteres:', texto.substring(0, 100));
+    
+    // Remove espaços extras no início e fim
+    let textoFormatado = texto.trim();
+    
+    // Normaliza quebras de linha (Windows para Unix)
+    textoFormatado = textoFormatado.replace(/\r\n/g, '\n');
+    
+    // Remove múltiplas quebras consecutivas (mais de 3)
+    textoFormatado = textoFormatado.replace(/\n{4,}/g, '\n\n\n');
+    
+    // Se o texto JÁ tem parágrafos bem separados (pelo menos 2 quebras), mantém
+    if (textoFormatado.includes('\n\n')) {
+        console.log('✅ Texto já possui parágrafos separados');
+        // Limpa excesso de quebras mas mantém estrutura
+        textoFormatado = textoFormatado.replace(/\n{3,}/g, '\n\n');
+        return textoFormatado;
+    }
+    
+    console.log('🔄 Texto sem parágrafos detectado, processando...');
+    
+    // ESTRATÉGIA 1: Detectar frases completas (termina com . ! ? seguido de espaço e letra maiúscula)
+    // Adiciona quebra dupla após pontos finais seguidos de letra maiúscula
+    textoFormatado = textoFormatado.replace(/([.!?])\s+([A-ZÁÉÍÓÚÂÊÔÃÕÇ])/g, '$1\n\n$2');
+    
+    // ESTRATÉGIA 2: Se ainda está tudo junto (sem quebras), força separação em sentenças
+    if (!textoFormatado.includes('\n')) {
+        console.log('⚠️ Texto totalmente junto, separando por sentenças...');
+        
+        // Separa em sentenças por ponto final
+        textoFormatado = textoFormatado.replace(/\.\s+/g, '.\n\n');
+        
+        // Remove quebras indevidas (ex: "Dr." não deve quebrar)
+        textoFormatado = textoFormatado.replace(/(Dr|Sr|Sra|Prof)\.\n\n/g, '$1. ');
+    }
+    
+    // ESTRATÉGIA 3: Se tem quebras simples, transforma em duplas
+    if (textoFormatado.includes('\n') && !textoFormatado.includes('\n\n')) {
+        console.log('🔄 Convertendo quebras simples em duplas...');
+        
+        // Divide em linhas
+        const linhas = textoFormatado
+            .split('\n')
+            .map(linha => linha.trim())
+            .filter(linha => linha.length > 0);
+        
+        console.log(`📝 Total de linhas: ${linhas.length}`);
+        
+        // Junta com quebra dupla
+        textoFormatado = linhas.join('\n\n');
+    }
+    
+    // Limpeza final
+    textoFormatado = textoFormatado
+        .replace(/  +/g, ' ')           // Remove espaços múltiplos
+        .replace(/\n{3,}/g, '\n\n')     // Remove quebras excessivas
+        .trim();
+    
+    console.log('✅ Formatação concluída. Tamanho final:', textoFormatado.length);
+    console.log('📊 Quebras duplas encontradas:', (textoFormatado.match(/\n\n/g) || []).length);
+    
+    return textoFormatado;
+}
+
+/**
  * Retorna a lista de contos formatada
  */
 function listarContos() {
@@ -126,14 +193,22 @@ function listarContos() {
         return '❌ Nenhum conto disponível no momento.';
     }
 
-    let lista = '📚 *CONTOS DISPONÍVEIS*\n';
-    lista += 'Autora: Gatinha Lua 🐾\n\n';
+    let lista = 'ஓீᤢ✧͢⃟ᤢ̤̤̤̤̤̤̤̤̤̤̤̤̤̤̤̤̤̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̼̬🌶️🍓ஓீᤢ✧͢⃟ᤢ̤̤̤̤̤̤̤̤̤̤̤̤̤̤̤̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̼̬🌶️🍓ஓீᤢ✧͢⃟ᤢ̤̤̤̤̤̤̤̤̤̤̤̤̤̤̤̤̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̼̬🌶️🍓\n';
+    lista += '💃 ⃝⃕፝⃟𝔇𝔞𝔪𝔞𝔰 𝔡𝔞 𝔑𝔦𝔤𝔥𝔱 ⸵░⃟😈\n';
+    lista += '*CONTOS ERÓTICOS*\n';
+    lista += '᭥ꩌ゚໋ ꯴᩠ꦽꦼ⛓️↦᭥ꩌ゚໋ ꯴᩠ꦽꦼ⛓️↦᭥ꩌ゚໋ ꯴᩠ꦽꦼ⛓️↦\n';
+    lista += '𝔇𝔞𝔪𝔞𝔰 𝔡𝔞 𝔑𝔦𝔤𝔥𝔱\n';
+    lista += '⃢ 🌶️🍓 ⃢\n';
+    lista += '───𖡜ꦽ̸ོ˚￫───ཹ💃🔥 ݇-݈ °︠︠︠︠︠︠︠︠𖡬 ᭄\n\n';
+    lista += '📚 *CONTOS DISPONÍVEIS*\n\n';
+    
     contos.forEach((conto, index) => {
         lista += `${index + 1}. *${conto.titulo}*\n`;
     });
+    
     lista += '\n💡 Digite *#ler [número]* para ler um conto\n';
     lista += 'Exemplo: #ler 1\n\n';
-    lista += '_© Damas da Night_';
+    lista += '_© 𝔇𝔞𝔪𝔞𝔰 𝔡𝔞 𝔑𝔦𝔤𝔥𝔱_';
 
     return lista;
 }
@@ -153,12 +228,31 @@ function obterConto(numero) {
     }
 
     const conto = contos[index];
-    let mensagem = `📖 *${conto.titulo}*\n`;
-    mensagem += `_Autora: Gatinha Lua 🐾_\n\n`;
-    mensagem += `${conto.conteudo}\n\n`;
+    
+    console.log('📝 Conto selecionado:', {
+        titulo: conto.titulo,
+        temConteudo: !!conto.conteudo,
+        tipoConteudo: typeof conto.conteudo,
+        tamanhoConteudo: conto.conteudo ? conto.conteudo.length : 0,
+        temImagem: !!conto.imagem
+    });
+    
+    // Garante que conteudo seja string e formata
+    const conteudoString = String(conto.conteudo || '');
+    const conteudoFormatado = formatarTexto(conteudoString);
+    
+    let mensagem = 'ஓீᤢ✧͢⃟ᤢ̤̤̤̤̤̤̤̤̤̤̤̤̤̤̤̤̤̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̼̬🌶️🍓ஓீᤢ✧͢⃟ᤢ̤̤̤̤̤̤̤̤̤̤̤̤̤̤̤̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̼̬🌶️🍓ஓீᤢ✧͢⃟ᤢ̤̤̤̤̤̤̤̤̤̤̤̤̤̤̤̤̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̼̬🌶️🍓\n';
+    mensagem += '💃 ⃝⃕፝⃟𝔇𝔞𝔪𝔞𝔰 𝔡𝔞 𝔑𝔦𝔤𝔥𝔱 ⸵░⃟😈\n';
+    mensagem += '*CONTOS ERÓTICOS*\n';
+    mensagem += '᭥ꩌ゚໋ ꯴᩠ꦽꦼ⛓️↦᭥ꩌ゚໋ ꯴᩠ꦽꦼ⛓️↦᭥ꩌ゚໋ ꯴᩠ꦽꦼ⛓️↦\n';
+    mensagem += '𝔇𝔞𝔪𝔞𝔰 𝔡𝔞 𝔑𝔦𝔤𝔥𝔱\n';
+    mensagem += '⃢ 🌶️🍓 ⃢\n';
+    mensagem += '───𖡜ꦽ̸ོ˚￫───ཹ💃🔥 ݇-݈ °︠︠︠︠︠︠︠︠𖡬 ᭄\n\n';
+    mensagem += `📖 *${conto.titulo}*\n\n`;
+    mensagem += `${conteudoFormatado}\n\n`;
     mensagem += `───────────────\n`;
     mensagem += `📚 Conto ${numero} de ${contos.length}\n`;
-    mensagem += `_© Damas da Night_`;
+    mensagem += `_© 𝔇𝔞𝔪𝔞𝔰 𝔡𝔞 𝔑𝔦𝔤𝔥𝔱_`;
 
     return {
         sucesso: true,
@@ -182,11 +276,22 @@ function contoAleatorio() {
     const indexAleatorio = Math.floor(Math.random() * contos.length);
     const conto = contos[indexAleatorio];
     
-    let mensagem = `🎲 *CONTO ALEATÓRIO*\n\n`;
-    mensagem += `📖 *${conto.titulo}*\n`;
-    mensagem += `_Autora: Gatinha Lua 🐾_\n\n`;
-    mensagem += conto.conteudo + '\n\n';
-    mensagem += `_© Damas da Night_`;
+    console.log('🎲 Conto aleatório selecionado:', conto.titulo);
+    
+    const conteudoString = String(conto.conteudo || '');
+    const conteudoFormatado = formatarTexto(conteudoString);
+    
+    let mensagem = 'ஓீᤢ✧͢⃟ᤢ̤̤̤̤̤̤̤̤̤̤̤̤̤̤̤̤̤̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̼̬🌶️🍓ஓீᤢ✧͢⃟ᤢ̤̤̤̤̤̤̤̤̤̤̤̤̤̤̤̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̼̬🌶️🍓ஓீᤢ✧͢⃟ᤢ̤̤̤̤̤̤̤̤̤̤̤̤̤̤̤̤̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̣̼̬🌶️🍓\n';
+    mensagem += '💃 ⃝⃕፝⃟𝔇𝔞𝔪𝔞𝔰 𝔡𝔞 𝔑𝔦𝔤𝔥𝔱 ⸵░⃟😈\n';
+    mensagem += '*CONTOS ERÓTICOS*\n';
+    mensagem += '᭥ꩌ゚໋ ꯴᩠ꦽꦼ⛓️↦᭥ꩌ゚໋ ꯴᩠ꦽꦼ⛓️↦᭥ꩌ゚໋ ꯴᩠ꦽꦼ⛓️↦\n';
+    mensagem += '𝔇𝔞𝔪𝔞𝔰 𝔡𝔞 𝔑𝔦𝔤𝔥𝔱\n';
+    mensagem += '⃢ 🌶️🍓 ⃢\n';
+    mensagem += '───𖡜ꦽ̸ོ˚￫───ཹ💃🔥 ݇-݈ °︠︠︠︠︠︠︠︠𖡬 ᭄\n\n';
+    mensagem += `🎲 *CONTO ALEATÓRIO*\n\n`;
+    mensagem += `📖 *${conto.titulo}*\n\n`;
+    mensagem += `${conteudoFormatado}\n\n`;
+    mensagem += `_© 𝔇𝔞𝔪𝔞𝔰 𝔡𝔞 𝔑𝔦𝔤𝔥𝔱_`;
 
     return {
         sucesso: true,
@@ -246,13 +351,10 @@ export async function handleContos(sock, message) {
             if (resultado.sucesso && resultado.conto && resultado.conto.imagem) {
                 console.log('📷 Conto tem imagem, baixando...');
                 
-                // Baixa e processa a imagem
                 const imageBuffer = await baixarImagemComJimp(resultado.conto.imagem);
                 
                 if (imageBuffer) {
-                    // Envia imagem com caption
                     try {
-                        // Gera thumbnail menor (256x256)
                         const thumb = await gerarThumbnail(imageBuffer, 256);
                         
                         await sock.sendMessage(remoteJid, {
@@ -268,20 +370,17 @@ export async function handleContos(sock, message) {
                         console.log('✅ Conto com imagem enviado!');
                     } catch (err) {
                         console.error('❌ Erro ao enviar imagem:', err.message);
-                        // Fallback: envia só o texto
                         await sock.sendMessage(remoteJid, { 
                             text: resultado.mensagem 
                         }, { quoted: message });
                     }
                 } else {
-                    // Se falhou o download, envia só o texto
                     console.log('⚠️ Falha no download, enviando apenas texto');
                     await sock.sendMessage(remoteJid, { 
                         text: resultado.mensagem 
                     }, { quoted: message });
                 }
             } else {
-                // Sem imagem, envia só o texto
                 console.log('📝 Enviando conto sem imagem');
                 await sock.sendMessage(remoteJid, { 
                     text: resultado.mensagem 
@@ -301,7 +400,6 @@ export async function handleContos(sock, message) {
                 
                 if (imageBuffer) {
                     try {
-                        // Gera thumbnail menor (256x256)
                         const thumb = await gerarThumbnail(imageBuffer, 256);
                         
                         await sock.sendMessage(remoteJid, {

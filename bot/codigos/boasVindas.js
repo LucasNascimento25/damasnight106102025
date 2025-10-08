@@ -93,66 +93,6 @@ async function enviarRegrasAposDelay(socket, groupId, participant) {
 }
 
 /**
- * Envia o menu de entretenimento após 1 minuto (60 segundos)
- */
-async function enviarMenuEntretenimento(socket, groupId, participant) {
-  setTimeout(async () => {
-    try {
-      console.log("⏰ Enviando menu de entretenimento após 1 minuto...");
-
-      const participantName = participant.split("@")[0];
-
-      const menuMessage = `
-👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 \n 
-
-🎪 *NOVO MENU DE ENTRETENIMENTO* 🎪
-🔥 Comandos exclusivos liberados! 🔥
-━━━━━━━━━━━━━━━━━━━━━━━
-📱 *DIGITE NO GRUPO:*
-   ➤ #menudamas
-━━━━━━━━━━━━━━━━━━━━━━━
-📋 *COMANDOS DISPONÍVEIS:* \n
-🎨 #stickerdamas - Criar stickers
-🔮 #signos - Lista todos os signos
-🌟 #horoscopo - Horóscopo do dia
-🌶️ #contos - Contos picantes
-🔞 #hqs - HQs adultos
-🎵 #damas music - Buscar músicas
-━━━━━━━━━━━━━━━━━━━━━━━
-✨ *Diversão garantida!* ✨
-💃 *Aproveite e compartilhe!* 🍾 \n 
-© *Damas da Night*
-
-@${participantName}, explore todos os comandos! 🎉`;
-
-      await socket.sendMessage(groupId, {
-        text: menuMessage,
-        mentions: [participant],
-      });
-
-      console.log(
-        "✅ Menu de entretenimento enviado com sucesso para",
-        participantName
-      );
-    } catch (error) {
-      console.error("❌ Erro ao enviar menu de entretenimento:", error);
-
-      // Tentativa de fallback caso haja erro
-      try {
-        await socket.sendMessage(groupId, {
-          text: `@${
-            participant.split("@")[0]
-          }, digite #menudamas para ver todos os comandos disponíveis! 🎉`,
-          mentions: [participant],
-        });
-      } catch (fallbackError) {
-        console.error("❌ Erro no fallback do menu:", fallbackError);
-      }
-    }
-  }, 60000); // ✅ 60 segundos = 1 minuto
-}
-
-/**
  * Configura mensagens de boas-vindas
  */
 export const configurarBoasVindas = async (socket, groupId, participant) => {
@@ -174,7 +114,7 @@ export const configurarBoasVindas = async (socket, groupId, participant) => {
     // ✅ Array completo de mensagens de boas-vindas
     const welcomeMessages = [
       `🎉💃 *BEM-VINDO(A) AO GRUPO* 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\n@${participantName} ✨🎉\n\n Aqui é um espaço de interação e diversão 24 horas! 🕛🔥 Prepare seu meme, seu GIF e sua risada! 😎💥\n\nParticipe das conversas e aproveite bons momentos com a gente! 💃🎶🍾🍸\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
-      `🎊🔥 *CHEGOU O(A) DONO(A) DA FESTA!* 💃🍾 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nPrepare-se para zoeira, desafios e histórias que ninguém acredita! 😎🔥\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+       `🎊🔥 *CHEGOU O(A) DONO(A) DA FESTA!* 💃🍾 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nPrepare-se para zoeira, desafios e histórias que ninguém acredita! 😎🔥\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
       `💃✨ *A RAINHA OU O REI CHEGOU!* 👑🔥 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nAqui só entra quem gosta de diversão, memes e risadas sem limites! 😆🍹\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
       `🎶💥 *CHEGOU COM ESTILO!* 💃🌟 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nSolte o GIF, prepare o emoji e venha causar impacto! 😎💫\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
       `🍾🎊 *BOAS-VINDAS À FESTA MAIS DOIDA!* 💃🔥 SEJA BEM-VINDO(A) @${participantName} AO GRUPO 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ* 💃🎶🍾🍸\n\nCuidado: aqui as risadas são contagiosas e os memes, explosivos! 💥😂\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
@@ -252,6 +192,7 @@ export const configurarBoasVindas = async (socket, groupId, participant) => {
       `💃🎉 *BOAS-VINDAS*, @${participantName}! O grupo 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 *acabou de ganhar um(a) destruidor(a) de tédio!* 😂🍸 *Entre e brilhe!* 🎶✨\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
       `🎊💫 *BOAS-VINDAS*, @${participantName}! Chegou quem vai dominar o 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 com memes e GIFs épicos! 😆🍹 Entre e cause! 🎉🔥\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
       `💥🎶 *BOAS-VINDAS*, @${participantName}! Agora o 👏🍻 *DﾑMﾑS* 💃🔥 *Dﾑ* *NIGӇԵ*💃🎶🍾🍸 está completo com sua presença! 😎🍾 GIFs, memes e diversão liberados! 🎊✨\n\n⏰ *Aguarde 10 segundos que enviarei as regras do grupo!*`,
+     
     ];
 
     // ✅ Seleção aleatória da mensagem
@@ -303,12 +244,6 @@ export const configurarBoasVindas = async (socket, groupId, participant) => {
     // Programar envio das regras após 10 segundos
     enviarRegrasAposDelay(socket, groupId, participant);
     console.log("⏰ Regras agendadas para envio em 10 segundos");
-
-    // Programar envio do menu de entretenimento após 1 minuto
-    enviarMenuEntretenimento(socket, groupId, participant);
-    console.log(
-      "⏰ Menu de entretenimento agendado para envio em 1 minuto (60 segundos)"
-    );
   } catch (error) {
     console.error("❌ Erro ao enviar boas-vindas:", error);
 
